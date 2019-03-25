@@ -1,0 +1,53 @@
+{
+  "name": "vitals-scraper",
+  "version": "1.0.8",
+  "description": "",
+  "main": "bin/index.js",
+  "scripts": {
+    "start": "node dist/index",
+    "start:dev": "ts-node-dev -r tsconfig-paths/register src/index.ts",
+    "lint": "./node_modules/.bin/tslint -c tslint.json \"test/**/*.ts\" \"src/**/*.ts\"",
+    "test": "nyc --extension .ts npm run test:no-spec | tap-spec && nyc report --reporter=text-lcov > coverage.lcov",
+    "test:full": "TEST_MODE=full npm run test:no-spec",
+    "test:no-spec": "NODE_ENV=test ts-node --files -r tsconfig-paths/register node_modules/tape/bin/tape test/**/*.test.ts",
+    "build": "./build.sh"
+  },
+  "files": [
+    "bin",
+    "src"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ISNIT0/vitals-scraper"
+  },
+  "author": "Joseph E. Reeve",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/blue-tape": "^0.1.32",
+    "@types/jsdom": "^12.2.3",
+    "@types/log-symbols": "^2.0.0",
+    "@types/minimist": "^1.2.0",
+    "@types/node": "^11.11.3",
+    "blue-tape": "^1.0.0",
+    "nyc": "^13.3.0",
+    "tap-spec": "^5.0.0",
+    "ts-node": "^8.0.3",
+    "ts-node-dev": "^1.0.0-pre.32",
+    "tsconfig-paths": "^3.8.0",
+    "tslint": "^5.14.0",
+    "typescript": "^3.3.3333",
+    "typescript-tslint-plugin": "^0.3.1"
+  },
+  "dependencies": {
+    "axios": "^0.18.0",
+    "backoff": "^2.5.0",
+    "jsdom": "^14.0.0",
+    "log-symbols": "^2.2.0",
+    "minimist": "^1.2.0",
+    "ora": "^3.2.0"
+  },
+  "preferGlobal": true,
+  "bin": {
+    "vitals-scraper": "./bin/mpscraper"
+  }
+}
