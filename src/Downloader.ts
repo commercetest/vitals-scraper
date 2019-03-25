@@ -37,17 +37,17 @@ export class Downloader {
         try {
             await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AppHealthDetailsPlace:p=${this.packageName}&aho=APP_HEALTH_OVERVIEW&ahdt=CRASHES&ts=THIRTY_DAYS&ahbt=BOOKS_AND_REFERENCE`, { waitUntil: 'networkidle0' });
             const tableEl = await page.evaluateHandle(`document.querySelector("body > div:nth-child(5) > div > div:nth-child(2) > div > div:nth-child(2) > div > div.NNCHDVB-T-c > div > div.NNCHDVB-G-m > div > div:nth-child(1) > div > div > div.NNCHDVB-j-z > div:nth-child(2) > fox-app-health-details").shadowRoot.querySelector("div > fox-loading-overlay > fox-app-health-details-breakdown:nth-child(4)").shadowRoot.querySelector("fox-dashboard-async-card > fox-app-health-details-table").shadowRoot.querySelector("table")`);
-            const columnTitles: string[] = await tableEl.asElement().$$eval('thead th', els => els.map(th => th.innerText.trim()).filter(a => a)) as any;
+            const columnTitles: string[] = await tableEl.asElement().$$eval('thead th', els => els.map((th: any) => th.innerText.trim()).filter(a => a)) as any;
             const rows = await tableEl.asElement().$$('tbody tr');
 
             const androidVersions: AndroidVersion[] = await Promise.all(
                 rows.map(async row => {
-                    const cells: string[] = await row.$$eval('th,td', els => els.map(el => el.innerText.trim())) as any;
+                    const cells: string[] = await row.$$eval('th,td', els => els.map((el: any) => el.innerText.trim())) as any;
                     const ret: AndroidVersion = columnTitles.reduce((acc: any, key, index) => {
                         acc[key] = cells[index];
                         return acc;
                     }, {});
-                    const crashUrl: string = await row.$eval('.related-link', el => el.href) as any;
+                    const crashUrl: string = await row.$eval('.related-link', (el: any) => el.href) as any;
                     const androidVersion = crashUrl.split('&androidVersion=')[1];
                     ret.androidVersion = androidVersion;
                     return ret;
@@ -111,9 +111,9 @@ async function readCrashClusters(page: Page): Promise<CrashCluster[]> {
 
     const crashClusters: CrashCluster[] = await Promise.all(
         rows.map(async row => {
-            const cells: string[] = await row.$$eval('th,td', els => els.map(el => el.innerText.trim())) as any;
-            const description = await fallbackPromise(row.$eval('[data-type="errorDescription"]', el => el.innerText) as any, '');
-            const location = await fallbackPromise(row.$eval('[data-type="errorLocation"]', el => el.innerText) as any, '');
+            const cells: string[] = await row.$$eval('th,td', els => els.map((el: any) => el.innerText.trim())) as any;
+            const description = await fallbackPromise(row.$eval('[data-type="errorDescription"]', (el: any) => el.innerText) as any, '');
+            const location = await fallbackPromise(row.$eval('[data-type="errorLocation"]', (el: any) => el.innerText) as any, '');
             return {
                 'Error description': description,
                 'Error location': location.replace('in ', ''),
