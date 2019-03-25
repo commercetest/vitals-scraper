@@ -1,11 +1,11 @@
 # MP Scraper
-![npm](https://img.shields.io/npm/v/mp-scraper.svg)
-[![Build Status](https://travis-ci.org/ISNIT0/mp-scraper.svg?branch=master)](https://travis-ci.org/ISNIT0/mp-scraper)
-[![codecov](https://codecov.io/gh/ISNIT0/mp-scraper/branch/master/graph/badge.svg)](https://codecov.io/gh/ISNIT0/mp-scraper)
-[![CodeFactor](https://www.codefactor.io/repository/github/isnit0/mp-scraper/badge)](https://www.codefactor.io/repository/github/isnit0/mp-scraper)
-![NPM License](https://img.shields.io/npm/l/mp-scraper.svg)
+![npm](https://img.shields.io/npm/v/vitals-scraper.svg)
+[![Build Status](https://travis-ci.org/commercetest/vitals-scraper.svg?branch=master)](https://travis-ci.org/commercetest/vitals-scraper)
+[![codecov](https://codecov.io/gh/commercetest/vitals-scraper/branch/master/graph/badge.svg)](https://codecov.io/gh/commercetest/vitals-scraper)
+[![CodeFactor](https://www.codefactor.io/repository/github/commercetest/vitals-scraper/badge)](https://www.codefactor.io/repository/github/commercetest/vitals-scraper)
+![NPM License](https://img.shields.io/npm/l/vitals-scraper.svg)
 
-> 🇬🇧 A simple and easy node scraper for [https://beta.parliament.uk/mps](https://beta.parliament.uk/mps)
+> 🤖 A simple Android Vitals scraper
 
 ## Usage
 ```bash
@@ -13,13 +13,15 @@
 npm i -g vitals-scraper
 
 # Run
-vitals-scraper
+vitals-scraper --accountId=XXX --packageName=XXX
 ```
 
 ### Options
+- `--accountId` required
+- `--packageName` required
 - `--format` (default: `csv`)
-- `--outFile` (default: `./mps.[format]`)
-- `--parallel` (default: `5`)
+- `--outDir` (default: `./`)
+- `--parallel` (default: `1`)
 - `--verbose` (default: `false`)
 
 
