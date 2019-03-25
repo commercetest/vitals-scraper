@@ -1,26 +1,33 @@
 ///<reference path="./types.d.ts" />
 
-import * as path from 'path';
 import ora from 'ora';
 import minimist from 'minimist';
-import { mapLimit, getMpDetailUrls, getMpDetail, logger } from './utils';
-import { csvHeaderRow } from './utils/const';
-import {
-  StructuredStreamWriter,
-  StructuredFormat,
-} from './utils/structuredStreamWriter';
+import * as path from 'path';
+import { logger } from './utils';
+import { Downloader } from './Downloader';
+import { StructuredStreamWriter } from './utils/structuredStreamWriter';
 
-const argv = minimist(process.argv.slice(2));
+const argv = minimist(process.argv.slice(2), {
+  string: [
+    'accountId',
+  ]
+});
 
 async function app(argv: any) {
+  if (!argv.accountId) {
+    throw new Error(`No [--accountId] set, this is required`);
+  }
+  if (!argv.packageName) {
+    throw new Error(`No [--packageName] set, this is required`);
+  }
+
   const verbose = argv.verbose || false;
   if (!argv.verbose) {
     logger.log(`[--verbose] is not set, defaulting to [${verbose}]`);
   }
-
   (process as any).verbose = verbose;
 
-  const parallel = argv.parallel || 5;
+  const parallel = argv.parallel || 1;
   if (!argv.parallel) {
     logger.log(`[--parallel] is not set, defaulting to [${parallel}]`);
   }
@@ -32,63 +39,85 @@ async function app(argv: any) {
     );
   }
 
-  let outputFilePath;
-  if (!argv.outFile) {
-    outputFilePath = path.join(process.cwd(), `mps.${format}`);
-    logger.log(`[--outFile] is not set, using [${outputFilePath}]`);
+  let outputDir;
+  if (!argv.outDir) {
+    outputDir = process.cwd();
+    logger.log(`[--outDir] is not set, using [${outputDir}]`);
   } else {
-    outputFilePath = path.join(process.cwd(), argv.outFile);
-    logger.log(`Writing data to [${outputFilePath}]`);
+    outputDir = path.join(process.cwd(), argv.outDir);
+    logger.log(`Writing data to [${outputDir}]`);
   }
 
   console.log('\n\n');
 
-  const mpListSpinner = ora(
-    `[${logger.getTs()}] Fetching list of MPs...`
-  ).start();
-  const detailUrls = await getMpDetailUrls();
-  mpListSpinner.succeed(
-    `[${logger.getTs()}] Found [${detailUrls.length}] MP detail pages`
+  const downloader = new Downloader(
+    parallel,
+    argv.packageName,
+    argv.accountId,
   );
 
-  const fileWriter = new StructuredStreamWriter(
-    format === 'json' ? StructuredFormat.JSON : StructuredFormat.CSV,
-    outputFilePath,
-    csvHeaderRow
-  );
+  await downloader.init();
+  const loginProgress = ora(`Logging In (see popped Chromium window)`).start();
+  await downloader.login();
+  loginProgress.succeed('Logging In');
 
-  const mpDetailSpinner = ora(
-    `[${logger.getTs()}] Fetching details for [${detailUrls.length}] MPs`
-  ).start();
-  let fetchedMPs = 0;
-  await mapLimit(detailUrls, parallel, async mpUrl => {
+  const {
+    androidVersions
+  } = await downloader.getVitalsOverview();
+  const crashesXversion = (await Promise.all(
+    Object.values(androidVersions)
+      .map(async item => {
+        const versionProgress = ora(`Getting crash clusters for [androidVersion=${item.androidVersion}] (${item['Android version']})\n`).start();
+        try {
+          if (!item.androidVersion) {
+            throw new Error(`[androidVersion=${item.androidVersion}] does not look like a valid version (For version [${item['Android version']}])`);
+          }
+          const crashes = await downloader.getCrashClustersForAndroidVersion(item);
+          versionProgress.succeed();
+          return {
+            androidVersion: item.androidVersion,
+            crashes
+          };
+        } catch (err) {
+          versionProgress.fail(`Failed to get crash clusters for [androidVersion=${item.androidVersion}] (${item['Android version']})\n${err}`);
+        }
+      })
+  )).filter(a => a);
+
+  for (const { androidVersion, crashes } of crashesXversion) {
+    const outFilePath = path.join(outputDir, `android-${androidVersion}_${Date.now()}.${format}`);
+    const writeFileProgress = ora(`Writing crashes for [androidVersion=${androidVersion}] to [${outFilePath}]`).start();
+
     try {
-      const mpData = await getMpDetail(mpUrl);
-      fileWriter.writeItem(mpData);
-      fetchedMPs += 1;
-      mpDetailSpinner.text = `[${logger.getTs()}] Got details for [${fetchedMPs}/${
-        detailUrls.length
-      }] MPs`;
+      const headerItems = Object.keys(Object.assign({}, ...crashes));
+      const fileWriter = new StructuredStreamWriter(format, outFilePath, headerItems);
+
+      for (const crash of crashes) {
+        await fileWriter.writeItem(crash);
+      }
+
+      fileWriter.done();
+
+      writeFileProgress.succeed();
     } catch (err) {
-      logger.warn(`Failed to get [${mpUrl}], skipping`);
+      writeFileProgress.fail();
+      throw err;
     }
-  });
-  mpDetailSpinner.succeed(`[${logger.getTs()}] Got [${fetchedMPs}] MP details`);
+  }
 
   console.log('\n\n');
 
-  fileWriter.done();
-  return outputFilePath;
+  downloader.close();
 }
 
 const startTime = Date.now();
 app(argv)
-  .then(outputFilePath => {
+  .then(() => {
     logger.log(
-      `Successfully Downloaded MPs to [${outputFilePath}] in [${Date.now() -
-        startTime}ms]`
+      `Successfully ran scrape in [${Date.now() -
+      startTime}ms]`
     );
   })
   .catch(err => {
-    logger.error(`Failed to download MP data after [${startTime}ms]:`, err);
+    logger.error(`Failed to scrape after [${Date.now() - startTime}ms]:`, err);
   });

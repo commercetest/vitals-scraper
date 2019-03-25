@@ -3,3 +3,4 @@ download
 bin
 .nyc_output
 coverage.lcov
+android-*

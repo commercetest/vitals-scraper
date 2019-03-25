@@ -23,29 +23,32 @@ export class StructuredStreamWriter {
 
   public done() {
     this.writeFooter();
+    this.fileStream.close();
   }
 
   public writeItem(item: { [key: string]: any }) {
-    if (this.format === StructuredFormat.JSON) {
-      // TODO: add option for pretty/compact JSON
-      const shouldAddPrefixComma = this.entries !== 0;
+    return new Promise((resolve, reject) => {
+      if (this.format === StructuredFormat.JSON) {
+        // TODO: add option for pretty/compact JSON
+        const shouldAddPrefixComma = this.entries !== 0;
 
-      const itemString = `${shouldAddPrefixComma ? ',\n' : ''}${JSON.stringify(
-        item,
-        null,
-        '\t'
-      )}`;
-      this.fileStream.write(itemString);
-    } else if (this.format === StructuredFormat.CSV) {
-      if (this.columns) {
-        const itemString = this.columns.map(key => item[key]).join(',') + '\n';
-        this.fileStream.write(itemString);
-      } else {
-        throw new Error(`Writing a CSV file, but don't have columns`);
+        const itemString = `${shouldAddPrefixComma ? ',\n' : ''}${JSON.stringify(
+          item,
+          null,
+          '\t'
+        )}`;
+        this.fileStream.write(itemString, (err) => err ? reject(err) : resolve());
+      } else if (this.format === StructuredFormat.CSV) {
+        if (this.columns) {
+          const itemString = this.columns.map(key => item[key]).join(',') + '\n';
+          this.fileStream.write(itemString, (err) => err ? reject(err) : resolve());
+        } else {
+          throw new Error(`Writing a CSV file, but don't have columns`);
+        }
       }
-    }
 
-    this.entries += 1;
+      this.entries += 1;
+    });
   }
 
   private writeHeader() {

@@ -1,6 +1,6 @@
 {
   "name": "vitals-scraper",
-  "version": "1.0.8",
+  "version": "1.0.1",
   "description": "",
   "main": "bin/index.js",
   "scripts": {
@@ -39,15 +39,17 @@
     "typescript-tslint-plugin": "^0.3.1"
   },
   "dependencies": {
+    "@types/puppeteer": "^1.12.3",
     "axios": "^0.18.0",
     "backoff": "^2.5.0",
     "jsdom": "^14.0.0",
     "log-symbols": "^2.2.0",
     "minimist": "^1.2.0",
-    "ora": "^3.2.0"
+    "ora": "^3.2.0",
+    "puppeteer": "^1.13.0"
   },
   "preferGlobal": true,
   "bin": {
-    "vitals-scraper": "./bin/mpscraper"
+    "vitals-scraper": "./bin/vitalsscraper"
   }
 }
