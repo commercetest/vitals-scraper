@@ -37,11 +37,12 @@ CLI typescript execution is provided by the `start:dev` npm script in [`package.
 
 E.g.
 ```bash
-npm run start:dev -- --accountId=XXX --packageName=XXX --format=json
+> npm run start:dev -- --accountId=XXX --packageName=XXX --format=json
 ```
 
 ### Building
 ```bash
+> npm install
 > npm run build
 ```
 
