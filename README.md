@@ -26,6 +26,20 @@ vitals-scraper --accountId=XXX --packageName=XXX
 
 
 ## Contributing
+### Running
+#### VSCode Debugger
+If you use VSCode, there is a pre-configured launch config: [`.vscode/launch.json`](.vscode/launch.json).
+
+This is preferable as no compilation step is required, and breakpoints can be used.
+
+#### CLI
+CLI typescript execution is provided by the `start:dev` npm script in [`package.json`](package.json). When executing with these scripts, `--` is required to tell bash to pass on the arguments.
+
+E.g.
+```bash
+npm run start:dev -- --accountId=XXX --packageName=XXX --format=json
+```
+
 ### Building
 ```bash
 > npm run build
@@ -34,6 +48,11 @@ vitals-scraper --accountId=XXX --packageName=XXX
 ### Testing
 ```bash
 > npm t
+```
+
+### Installing modified version
+```bash
+> npm run build && npm i -g .
 ```
 
 ## License
