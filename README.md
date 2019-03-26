@@ -1,4 +1,4 @@
-# MP Scraper
+# Vitals Scraper
 ![npm](https://img.shields.io/npm/v/vitals-scraper.svg)
 [![Build Status](https://travis-ci.org/commercetest/vitals-scraper.svg?branch=master)](https://travis-ci.org/commercetest/vitals-scraper)
 [![codecov](https://codecov.io/gh/commercetest/vitals-scraper/branch/master/graph/badge.svg)](https://codecov.io/gh/commercetest/vitals-scraper)
