@@ -61,61 +61,87 @@ async function app(argv: any) {
   await downloader.login();
   loginProgress.succeed('Logging In');
 
-  const overviewProgress = ora(`Getting Vitals Overview`).start();
-  const {
-    androidVersions
-  } = await downloader.getVitalsOverview();
-  overviewProgress.succeed();
-  const crashesXversion = (await Promise.all(
-    Object.values(androidVersions)
-      .map(async item => {
-        if (!item.androidVersion) {
-          switch(item['Android version']){
-            case "8":
-              item.androidVersion = "28"
-              break;
-            case "7":
-              item.androidVersion = "27"
-              break;
-            }
-        }
-        const versionProgress = ora(`Getting crash clusters for [androidVersion=${item.androidVersion}] (${item['Android version']})\n`).start();
-        try {
-          if (!item.androidVersion) {
-            throw new Error(`[androidVersion=${item.androidVersion}] does not look like a valid version (For version [${item['Android version']}])`);
-          }
-          const crashes = await downloader.getCrashClustersForAndroidVersion(item);
-          versionProgress.succeed();
-          return {
-            androidVersion: item.androidVersion,
-            crashes
-          };
-        } catch (err) {
-          versionProgress.fail(`Failed to get crash clusters for [androidVersion=${item.androidVersion}] (${item['Android version']})\n${err}`);
-        }
-      })
-  )).filter(a => a);
+  const clustersProgress = ora(`Getting crash clusters`).start();
+  const clusterIds = await downloader.getCrashClusterIds();
+  const crashClusterDetails = await Promise.all(
+    clusterIds.map(id => downloader.getCrashCluster(id))
+  );
+  clustersProgress.succeed();
 
-  for (const { androidVersion, crashes } of crashesXversion) {
-    const outFilePath = path.join(outputDir, `android-${androidVersion}_${Date.now()}.${format}`);
-    const writeFileProgress = ora(`Writing crashes for [androidVersion=${androidVersion}] to [${outFilePath}]`).start();
+  const outFilePath = path.join(outputDir, `android-crash-clusters_${Date.now()}.${format}`);
+  const writeFileProgress = ora(`Writing crashes to [${outFilePath}]`).start();
 
-    try {
-      const headerItems = Object.keys(Object.assign({}, ...crashes));
-      const fileWriter = new StructuredStreamWriter(format, outFilePath, headerItems);
+  try {
+    const headerItems = Object.keys(Object.assign({}, ...crashClusterDetails));
+    const fileWriter = new StructuredStreamWriter(format, outFilePath, headerItems);
 
-      for (const crash of crashes) {
-        await fileWriter.writeItem(crash);
-      }
-
-      fileWriter.done();
-
-      writeFileProgress.succeed();
-    } catch (err) {
-      writeFileProgress.fail();
-      throw err;
+    for (const crash of crashClusterDetails) {
+      await fileWriter.writeItem(crash);
     }
+
+    fileWriter.done();
+
+    writeFileProgress.succeed();
+  } catch (err) {
+    writeFileProgress.fail();
+    throw err;
   }
+
+  // const overviewProgress = ora(`Getting Vitals Overview`).start();
+  // const {
+  //   androidVersions
+  // } = await downloader.getVitalsOverview();
+  // overviewProgress.succeed();
+  // const crashesXversion = (await Promise.all(
+  //   Object.values(androidVersions)
+  //     .map(async item => {
+  //       if (!item.androidVersion) {
+  //         switch(item['Android version']){
+  //           case "8":
+  //             item.androidVersion = "28"
+  //             break;
+  //           case "7":
+  //             item.androidVersion = "27"
+  //             break;
+  //           }
+  //       }
+  //       const versionProgress = ora(`Getting crash clusters for [androidVersion=${item.androidVersion}] (${item['Android version']})\n`).start();
+  //       try {
+  //         if (!item.androidVersion) {
+  //           throw new Error(`[androidVersion=${item.androidVersion}] does not look like a valid version (For version [${item['Android version']}])`);
+  //         }
+  //         const crashes = await downloader.getCrashClustersForAndroidVersion(item);
+  //         versionProgress.succeed();
+  //         return {
+  //           androidVersion: item.androidVersion,
+  //           crashes
+  //         };
+  //       } catch (err) {
+  //         versionProgress.fail(`Failed to get crash clusters for [androidVersion=${item.androidVersion}] (${item['Android version']})\n${err}`);
+  //       }
+  //     })
+  // )).filter(a => a);
+
+  // for (const { androidVersion, crashes } of crashesXversion) {
+  //   const outFilePath = path.join(outputDir, `android-${androidVersion}_${Date.now()}.${format}`);
+  //   const writeFileProgress = ora(`Writing crashes for [androidVersion=${androidVersion}] to [${outFilePath}]`).start();
+
+  //   try {
+  //     const headerItems = Object.keys(Object.assign({}, ...crashes));
+  //     const fileWriter = new StructuredStreamWriter(format, outFilePath, headerItems);
+
+  //     for (const crash of crashes) {
+  //       await fileWriter.writeItem(crash);
+  //     }
+
+  //     fileWriter.done();
+
+  //     writeFileProgress.succeed();
+  //   } catch (err) {
+  //     writeFileProgress.fail();
+  //     throw err;
+  //   }
+  // }
 
   console.log('\n\n');
 

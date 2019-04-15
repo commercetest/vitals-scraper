@@ -1,6 +1,5 @@
 import puppeteer, { Page, Browser } from 'puppeteer';
 import { fallbackPromise, sleep } from './utils';
-import { SSL_OP_EPHEMERAL_RSA } from 'constants';
 
 export class Downloader {
     private browser: Browser;
@@ -28,6 +27,73 @@ export class Downloader {
         try {
             await page.goto('https://play.google.com/apps/publish');
             await page.waitForResponse(response => response.url().includes('AppListPlace'), { timeout: null });
+        } finally {
+            this.releasePage(page);
+        }
+    }
+
+    public async getCrashClusterIds() {
+        const page = await this.claimPage();
+        try {
+            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${this.packageName}&appVersion&lastReportedRange=LAST_60_DAYS`);
+            const crashClusterIds = await getCrashClusterIds(page);
+
+            return crashClusterIds;
+        } finally {
+            this.releasePage(page);
+        }
+    }
+
+    public async getCrashCluster(clusterId: string) {
+        const page = await this.claimPage();
+        try {
+            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${this.packageName}&appVersion&lastReportedRange=LAST_60_DAYS&clusterName=${clusterId}&detailsAppVersion`)
+            await page.waitForSelector('.gwt-viz-container'); // loading
+            // const summaryItems = [...await page.$$('body > div:nth-child(7) > div > div:nth-child(2) > div > div:nth-child(2) > div > div.IP4Y5NB-T-c > div > div.IP4Y5NB-G-m > div > div:nth-child(1) > div > div > div.IP4Y5NB-j-z.IP4Y5NB-j-U > div:nth-child(2) > section > div.IP4Y5NB-E-h.IP4Y5NB-j-E.IP4Y5NB-jj-a > div')]
+            const summaryData: any = await page.$$eval('[role=article]', els => {
+                const summaryItemsCont = els[0] as any;
+                const summaryItems = [...summaryItemsCont.children];
+                const data = summaryItems
+                    .map((el: any) => [...el.querySelectorAll('.gwt-Label')].map((el: any) => el.textContent).slice(0, 2))
+                    .reduce((acc, [key, value]) => {
+                        return {
+                            ...acc,
+                            [key]: value
+                        };
+                    }, {});
+                return data;
+            });
+
+            // Trigger show all items
+            await page.$$eval('body > div:nth-child(7) > div > div:nth-child(2) > div > div:nth-child(2) > div > div.IP4Y5NB-T-c > div > div.IP4Y5NB-G-m > div > div:nth-child(1) > div > div > div.IP4Y5NB-j-z.IP4Y5NB-j-U > div:nth-child(2) > section > div:nth-child(5) > div.IP4Y5NB-E-d .gwt-Anchor', els => els.forEach((el: any) => el.click()));
+
+            const detailData = await page.$$eval('[role=article]', articles => {
+                return articles.slice(2, 5)
+                    .reduce((acc, el) => {
+                        const title = el.querySelector('h3').textContent;
+                        const table = [...el.querySelectorAll('table') as any].slice(-1)[0];
+
+                        const tableData = [...table.querySelectorAll('tr')]
+                            .reduce((acc, row) => {
+                                const [key, value, percentage] = [...row.querySelectorAll('td')].map(el => el.textContent);
+
+                                return {
+                                    ...acc,
+                                    [key]: { value, percentage }
+                                };
+                            }, {});
+
+                        return {
+                            ...acc,
+                            [title]: tableData
+                        };
+                    }, {});
+            });
+
+            return {
+                ...summaryData,
+                ...detailData,
+            };
         } finally {
             this.releasePage(page);
         }
@@ -104,6 +170,47 @@ export class Downloader {
         (page as any).claimed = false;
     }
 }
+
+function parseHash(hash: string) {
+    return hash.split('&')
+        .reduce((acc, kvPair) => {
+            const [key, value] = kvPair.split('=');
+            return {
+                ...acc,
+                [key]: value
+            };
+        }, {});
+}
+
+async function getCrashClusterIds(page: Page): Promise<string[]> {
+    await page.waitForSelector('[data-type="errorLocation"]'); // loading
+
+    const clusterHrefs = await page.$$eval('section table tbody tr a', (as: any[]) => as.map(a => a.href));
+
+    const crashClusterIds = clusterHrefs
+        .map(href => {
+            return (parseHash(href) as any).clusterName;
+        });
+
+    let nextPageButton;
+    try {
+        nextPageButton = await page.$('[aria-label="Next page"]:not(:disabled)');
+    } catch (err) { /* NOOP */ }
+
+    if (nextPageButton) {
+        await nextPageButton.click();
+        await page.waitFor(1000);
+        return crashClusterIds.concat(
+            await getCrashClusterIds(page)
+        );
+    } else {
+        return crashClusterIds;
+    }
+}
+
+// async function getCrashClusterTraces(page:Page): Promise<any> {
+
+// }
 
 async function readCrashClusters(page: Page): Promise<CrashCluster[]> {
     await page.waitForSelector('[data-type="errorLocation"]'); // loading
