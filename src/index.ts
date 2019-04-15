@@ -69,6 +69,16 @@ async function app(argv: any) {
   const crashesXversion = (await Promise.all(
     Object.values(androidVersions)
       .map(async item => {
+        if (!item.androidVersion) {
+          switch(item['Android version']){
+            case "8":
+              item.androidVersion = "28"
+              break;
+            case "7":
+              item.androidVersion = "27"
+              break;
+            }
+        }
         const versionProgress = ora(`Getting crash clusters for [androidVersion=${item.androidVersion}] (${item['Android version']})\n`).start();
         try {
           if (!item.androidVersion) {
