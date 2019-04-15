@@ -61,9 +61,11 @@ async function app(argv: any) {
   await downloader.login();
   loginProgress.succeed('Logging In');
 
+  const overviewProgress = ora(`Getting Vitals Overview`).start();
   const {
     androidVersions
   } = await downloader.getVitalsOverview();
+  overviewProgress.succeed();
   const crashesXversion = (await Promise.all(
     Object.values(androidVersions)
       .map(async item => {

@@ -1,5 +1,6 @@
 import puppeteer, { Page, Browser } from 'puppeteer';
-import { fallbackPromise } from './utils';
+import { fallbackPromise, sleep } from './utils';
+import { SSL_OP_EPHEMERAL_RSA } from 'constants';
 
 export class Downloader {
     private browser: Browser;
@@ -36,7 +37,7 @@ export class Downloader {
         const page = await this.claimPage();
         try {
             await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AppHealthDetailsPlace:p=${this.packageName}&aho=APP_HEALTH_OVERVIEW&ahdt=CRASHES&ts=THIRTY_DAYS&ahbt=BOOKS_AND_REFERENCE`, { waitUntil: 'networkidle0' });
-            const tableEl = await page.evaluateHandle(`document.querySelector("body > div:nth-child(5) > div > div:nth-child(2) > div > div:nth-child(2) > div > div.NNCHDVB-T-c > div > div.NNCHDVB-G-m > div > div:nth-child(1) > div > div > div.NNCHDVB-j-z > div:nth-child(2) > fox-app-health-details").shadowRoot.querySelector("div > fox-loading-overlay > fox-app-health-details-breakdown:nth-child(4)").shadowRoot.querySelector("fox-dashboard-async-card > fox-app-health-details-table").shadowRoot.querySelector("table")`);
+            const tableEl = await page.evaluateHandle(`document.querySelector("body > div:nth-child(5) > div > div:nth-child(2) > div > div:nth-child(2) > div > div.IP4Y5NB-T-c > div > div.IP4Y5NB-G-m > div > div:nth-child(1) > div > div > div.IP4Y5NB-j-z > div:nth-child(2) > fox-app-health-details").shadowRoot.querySelector("div > fox-loading-overlay > fox-app-health-details-breakdown:nth-child(4)").shadowRoot.querySelector("fox-dashboard-async-card > fox-app-health-details-table").shadowRoot.querySelector("table")`);
             const columnTitles: string[] = await tableEl.asElement().$$eval('thead th', els => els.map((th: any) => th.innerText.trim()).filter(a => a)) as any;
             const rows = await tableEl.asElement().$$('tbody tr');
 

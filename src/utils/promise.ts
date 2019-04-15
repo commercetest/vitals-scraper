@@ -6,3 +6,9 @@ export function fallbackPromise<T>(promise: Promise<T>, fallbackValue: T) {
         return fallbackValue;
     });
 }
+
+export function sleep(ms: number) {
+    return new Promise((resolve) => {
+        setTimeout(resolve, ms);
+    });
+}
