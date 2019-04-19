@@ -196,12 +196,12 @@ async function getCrashClusterIds(page: Page): Promise<string[]> {
         });
 
     let nextPageButton;
-    // try {
-    //     nextPageButton = await page.$('[aria-label="Next page"]:not(:disabled)');
-    // } catch (err) { /* NOOP */ }
+    try {
+        nextPageButton = await page.$('[aria-label="Next page"]:not(:disabled)');
+    } catch (err) { /* NOOP */ }
 
     if (nextPageButton) {
-        // await nextPageButton.click();
+        await nextPageButton.click();
         await page.waitFor(1000);
         return crashClusterIds.concat(
             await getCrashClusterIds(page)
