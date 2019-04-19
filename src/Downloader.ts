@@ -49,7 +49,6 @@ export class Downloader {
         try {
             await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${this.packageName}&appVersion&lastReportedRange=LAST_60_DAYS&clusterName=${clusterId}&detailsAppVersion`)
             await page.waitForSelector('.gwt-viz-container'); // loading
-            await page.waitForSelector('section[role=article] .gwt-HTML strong'); // loading
             // const summaryItems = [...await page.$$('body > div:nth-child(7) > div > div:nth-child(2) > div > div:nth-child(2) > div > div.IP4Y5NB-T-c > div > div.IP4Y5NB-G-m > div > div:nth-child(1) > div > div > div.IP4Y5NB-j-z.IP4Y5NB-j-U > div:nth-child(2) > section > div.IP4Y5NB-E-h.IP4Y5NB-j-E.IP4Y5NB-jj-a > div')]
             const summaryData: any = await page.$$eval('[role=article]', els => {
                 const summaryItemsCont = els[0] as any;
@@ -91,14 +90,12 @@ export class Downloader {
                     }, {});
             });
 
-            const exceptionName = await page.$eval('section[role=article] .gwt-HTML strong', el => el.textContent);
-            const trace = await page.$$eval('section[role=article] .gwt-Label', els => els.slice(1).map(el => el.textContent).join('\n'));
+            const exceptions = await readExceptionsFromCrashPage(page);
 
             return {
                 ...summaryData,
                 ...detailData,
-                exceptionName,
-                stackTrace: trace,
+                exceptions,
             };
         } finally {
             this.releasePage(page);
@@ -211,6 +208,37 @@ async function getCrashClusterIds(page: Page): Promise<string[]> {
         );
     } else {
         return crashClusterIds;
+    }
+}
+
+async function readExceptionsFromCrashPage(page: Page): Promise<Array<{ trace: string, title: string, device: string }>> {
+
+    await page.waitForSelector('section[role=article] .gwt-HTML strong'); // loading
+
+    const title = await page.$eval('section[role=article] .gwt-Label', el => el.textContent);
+    const device = await page.$eval('section[role=article] .gwt-HTML', el => el.textContent);
+    const name = await page.$eval('section[role=article] .gwt-HTML strong', el => el.textContent);
+    const trace = await page.$$eval('section[role=article] .gwt-Label', els => els.slice(1).map(el => el.textContent).join('\n'));
+
+    const exception = {
+        title,
+        trace: name + '\n' + trace,
+        device,
+    };
+
+    let nextPageButton;
+    try {
+        nextPageButton = await page.$('[aria-label="Next page"]:not(:disabled)');
+    } catch (err) { /* NOOP */ }
+
+    if (nextPageButton) {
+        await nextPageButton.click();
+        await page.waitFor(1000);
+        return [exception].concat(
+            await readExceptionsFromCrashPage(page)
+        );
+    } else {
+        return [exception];
     }
 }
 

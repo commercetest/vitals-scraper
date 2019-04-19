@@ -17,7 +17,8 @@
                 "${workspaceRoot}/src/index.ts",
                 "--accountId=9116215767541857492",
                 "--packageName=org.kiwix.kiwixmobile",
-                "--format=json"
+                "--format=json",
+                // "--parallel=4"
             ],
             "sourceMaps": true,
             "cwd": "${workspaceRoot}",

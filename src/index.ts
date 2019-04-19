@@ -32,11 +32,14 @@ async function app(argv: any) {
     logger.log(`[--parallel] is not set, defaulting to [${parallel}]`);
   }
 
-  const format = argv.format || 'csv';
+  const format = argv.format || 'json';
   if (!argv.format) {
     logger.log(
       `[--format] is not set, defaulting to [${format}] (options: json|csv)`
     );
+  }
+  if (format !== 'json') {
+    throw new Error(`Currently only supports [--format=json]`);
   }
 
   let outputDir;
@@ -61,29 +64,27 @@ async function app(argv: any) {
   await downloader.login();
   loginProgress.succeed('Logging In');
 
-  const clustersProgress = ora(`Getting crash clusters`).start();
-  const clusterIds = await downloader.getCrashClusterIds();
-  const crashClusterDetails = await Promise.all(
-    clusterIds.map(id => downloader.getCrashCluster(id))
-  );
-  clustersProgress.succeed();
-
   const outFilePath = path.join(outputDir, `android-crash-clusters_${Date.now()}.${format}`);
-  const writeFileProgress = ora(`Writing crashes to [${outFilePath}]`).start();
+  const clustersProgress = ora(`Getting and writing crash clusters to [${outFilePath}]`).start();
 
   try {
-    const headerItems = Object.keys(Object.assign({}, ...crashClusterDetails));
-    const fileWriter = new StructuredStreamWriter(format, outFilePath, headerItems);
-
-    for (const crash of crashClusterDetails) {
-      await fileWriter.writeItem(crash);
-    }
+    const fileWriter = new StructuredStreamWriter(format, outFilePath);
+    const clusterIds = await downloader.getCrashClusterIds();
+    let completedScrapeIndex = 0;
+    await Promise.all(
+      clusterIds.map(id => downloader.getCrashCluster(id).then((ret) => {
+        console.log(`Got crash cluster detail [${completedScrapeIndex}/${clusterIds.length}] [${Math.round(completedScrapeIndex / clusterIds.length * 100)}%]`);
+        completedScrapeIndex += 1;
+        return fileWriter.writeItem(ret);
+      }))
+    );
 
     fileWriter.done();
 
-    writeFileProgress.succeed();
+    clustersProgress.succeed();
+
   } catch (err) {
-    writeFileProgress.fail();
+    clustersProgress.fail();
     throw err;
   }
 
