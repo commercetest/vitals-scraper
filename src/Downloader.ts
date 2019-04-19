@@ -35,7 +35,7 @@ export class Downloader {
     public async getCrashClusterIds() {
         const page = await this.claimPage();
         try {
-            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${this.packageName}&appVersion&lastReportedRange=LAST_60_DAYS`);
+            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${this.packageName}&appVersion&lastReportedRange=LAST_60_DAYS&errorType=CRASH`);
             const crashClusterIds = await getCrashClusterIds(page);
 
             return crashClusterIds;
@@ -49,6 +49,7 @@ export class Downloader {
         try {
             await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${this.packageName}&appVersion&lastReportedRange=LAST_60_DAYS&clusterName=${clusterId}&detailsAppVersion`)
             await page.waitForSelector('.gwt-viz-container'); // loading
+            await page.waitForSelector('section[role=article] .gwt-HTML strong'); // loading
             // const summaryItems = [...await page.$$('body > div:nth-child(7) > div > div:nth-child(2) > div > div:nth-child(2) > div > div.IP4Y5NB-T-c > div > div.IP4Y5NB-G-m > div > div:nth-child(1) > div > div > div.IP4Y5NB-j-z.IP4Y5NB-j-U > div:nth-child(2) > section > div.IP4Y5NB-E-h.IP4Y5NB-j-E.IP4Y5NB-jj-a > div')]
             const summaryData: any = await page.$$eval('[role=article]', els => {
                 const summaryItemsCont = els[0] as any;
@@ -90,9 +91,14 @@ export class Downloader {
                     }, {});
             });
 
+            const exceptionName = await page.$eval('section[role=article] .gwt-HTML strong', el => el.textContent);
+            const trace = await page.$$eval('section[role=article] .gwt-Label', els => els.slice(1).map(el => el.textContent).join('\n'));
+
             return {
                 ...summaryData,
                 ...detailData,
+                exceptionName,
+                stackTrace: trace,
             };
         } finally {
             this.releasePage(page);
@@ -193,12 +199,12 @@ async function getCrashClusterIds(page: Page): Promise<string[]> {
         });
 
     let nextPageButton;
-    try {
-        nextPageButton = await page.$('[aria-label="Next page"]:not(:disabled)');
-    } catch (err) { /* NOOP */ }
+    // try {
+    //     nextPageButton = await page.$('[aria-label="Next page"]:not(:disabled)');
+    // } catch (err) { /* NOOP */ }
 
     if (nextPageButton) {
-        await nextPageButton.click();
+        // await nextPageButton.click();
         await page.waitFor(1000);
         return crashClusterIds.concat(
             await getCrashClusterIds(page)
@@ -207,10 +213,6 @@ async function getCrashClusterIds(page: Page): Promise<string[]> {
         return crashClusterIds;
     }
 }
-
-// async function getCrashClusterTraces(page:Page): Promise<any> {
-
-// }
 
 async function readCrashClusters(page: Page): Promise<CrashCluster[]> {
     await page.waitForSelector('[data-type="errorLocation"]'); // loading
