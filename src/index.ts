@@ -73,7 +73,9 @@ async function app(argv: any) {
     let completedScrapeIndex = 0;
     await Promise.all(
       clusterIds.map(id => downloader.getCrashCluster(id).then((ret) => {
-        console.log(`Got crash cluster detail [${completedScrapeIndex}/${clusterIds.length}] [${Math.round(completedScrapeIndex / clusterIds.length * 100)}%]`);
+        const progressPercentage = Math.round(completedScrapeIndex / clusterIds.length * 100);
+        clustersProgress.info(`Getting and writing crash clusters to [${outFilePath}] [${completedScrapeIndex}/${clusterIds.length}] [${progressPercentage}%]`);
+        logger.info(`Got crash cluster detail [${completedScrapeIndex}/${clusterIds.length}] [${progressPercentage}%]`);
         completedScrapeIndex += 1;
         return fileWriter.writeItem(ret);
       }))

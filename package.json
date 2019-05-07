@@ -4,7 +4,7 @@
   "description": "",
   "main": "bin/index.js",
   "scripts": {
-    "start": "node dist/index",
+    "start": "node bin/index",
     "start:dev": "ts-node-dev -r tsconfig-paths/register src/index.ts",
     "lint": "./node_modules/.bin/tslint -c tslint.json \"test/**/*.ts\" \"src/**/*.ts\"",
     "test": "nyc --extension .ts npm run test:no-spec | tap-spec && nyc report --reporter=text-lcov > coverage.lcov",

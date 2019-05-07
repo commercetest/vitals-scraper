@@ -8,6 +8,8 @@ export class Downloader {
     private accountId: string;
     private packageName: string;
 
+    private claimRequest: Promise<Page> = Promise.resolve(null);
+
     constructor(parallel: number, packageName: string, accountId: string) {
         this.parallel = Math.abs(Math.max(1, parallel));
         this.accountId = accountId;
@@ -18,7 +20,9 @@ export class Downloader {
         this.browser = await puppeteer.launch({ headless: false });
 
         for (let i = 0; i < this.parallel; i++) {
-            this.pages.push(await this.browser.newPage());
+            const page = await this.browser.newPage();
+            (page as any).currentRequest = Promise.resolve();
+            this.pages.push(page);
         }
     }
 
@@ -49,23 +53,23 @@ export class Downloader {
         try {
             await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${this.packageName}&appVersion&lastReportedRange=LAST_60_DAYS&clusterName=${clusterId}&detailsAppVersion`)
             await page.waitForSelector('.gwt-viz-container'); // loading
-            // const summaryItems = [...await page.$$('body > div:nth-child(7) > div > div:nth-child(2) > div > div:nth-child(2) > div > div.IP4Y5NB-T-c > div > div.IP4Y5NB-G-m > div > div:nth-child(1) > div > div > div.IP4Y5NB-j-z.IP4Y5NB-j-U > div:nth-child(2) > section > div.IP4Y5NB-E-h.IP4Y5NB-j-E.IP4Y5NB-jj-a > div')]
-            const summaryData: any = await page.$$eval('[role=article]', els => {
-                const summaryItemsCont = els[0] as any;
+
+            const summaryData: any = await page.$eval('[role=article]', (summaryItemsCont: any) => {
                 const summaryItems = [...summaryItemsCont.children];
                 const data = summaryItems
-                    .map((el: any) => [...el.querySelectorAll('.gwt-Label')].map((el: any) => el.textContent).slice(0, 2))
+                    .map(a => [...a.children].slice(0, 3).map(a => a.textContent.trim()).filter(a => a))
                     .reduce((acc, [key, value]) => {
+                        const processedKey = key.replace(/\./g, '_').trim();
                         return {
                             ...acc,
-                            [key]: value
+                            [processedKey]: (value || '').trim()
                         };
                     }, {});
                 return data;
             });
 
             // Trigger show all items
-            await page.$$eval('body > div:nth-child(7) > div > div:nth-child(2) > div > div:nth-child(2) > div > div.IP4Y5NB-T-c > div > div.IP4Y5NB-G-m > div > div:nth-child(1) > div > div > div.IP4Y5NB-j-z.IP4Y5NB-j-U > div:nth-child(2) > section > div:nth-child(5) > div.IP4Y5NB-E-d .gwt-Anchor', els => els.forEach((el: any) => el.click()));
+            await page.$$eval('[role=article] .gwt-Anchor[href="javascript:"]', els => els.forEach((el: any) => el.click()));
 
             const detailData = await page.$$eval('[role=article]', articles => {
                 return articles.slice(2, 5)
@@ -77,9 +81,11 @@ export class Downloader {
                             .reduce((acc, row) => {
                                 const [key, value, percentage] = [...row.querySelectorAll('td')].map(el => el.textContent);
 
+                                const processedKey = key.replace(/\./g, '_').trim();
+
                                 return {
                                     ...acc,
-                                    [key]: { value, percentage }
+                                    [processedKey]: { value: (value || '').trim(), percentage: (percentage || '').trim() }
                                 };
                             }, {});
 
@@ -155,22 +161,26 @@ export class Downloader {
     }
 
     private async claimPage(): Promise<Page> {
-        const unusedPages = this.pages.filter((p: any) => !p.claimed);
-        if (unusedPages.length) {
-            const page = unusedPages[0];
-            (page as any).claimed = true;
-            return page;
-        } else {
-            return new Promise((resolve, reject) => {
-                setTimeout(() => {
-                    this.claimPage().then(resolve, reject);
-                }, 100);
+        const claimRequest = this.claimRequest.then(() => {
+            return new Promise<Page>(async (resolve) => {
+                const page = await Promise.race(this.pages.map((p: any) => p.currentRequest.then(() => p)));
+                page.currentRequest = page.currentRequest.then(() => {
+                    return new Promise((resolve) => {
+                        page.release = resolve;
+                    });
+                });
+                resolve(page);
             });
-        }
+        });
+
+        this.claimRequest = claimRequest;
+        return claimRequest;
     }
 
     private async releasePage(page: Page) {
-        (page as any).claimed = false;
+        const sleepMult = 1 + Math.random() * 5;
+        await sleep(1000 * sleepMult);
+        (page as any).release();
     }
 }
 
@@ -213,11 +223,12 @@ async function getCrashClusterIds(page: Page): Promise<string[]> {
 
 async function readExceptionsFromCrashPage(page: Page): Promise<Array<{ trace: string, title: string, device: string }>> {
 
-    await page.waitForSelector('section[role=article] .gwt-HTML strong'); // loading
+    await page.waitForSelector('section[role=article] .gwt-HTML'); // loading
+    await page.waitFor(1000);
 
     const title = await page.$eval('section[role=article] .gwt-Label', el => el.textContent);
     const device = await page.$eval('section[role=article] .gwt-HTML', el => el.textContent);
-    const name = await page.$eval('section[role=article] .gwt-HTML strong', el => el.textContent);
+    const name = await page.$$eval('section[role=article] .gwt-HTML', ([_, el]) => el.textContent);
     const trace = await page.$$eval('section[role=article] .gwt-Label', els => els.slice(1).map(el => el.textContent).join('\n'));
 
     const exception = {
@@ -233,7 +244,6 @@ async function readExceptionsFromCrashPage(page: Page): Promise<Array<{ trace: s
 
     if (nextPageButton) {
         await nextPageButton.click();
-        await page.waitFor(1000);
         return [exception].concat(
             await readExceptionsFromCrashPage(page)
         );
@@ -262,6 +272,7 @@ async function readCrashClusters(page: Page): Promise<CrashCluster[]> {
         })
     );
 
+    await page.waitFor(1000);
     let nextPageButton;
     try {
         nextPageButton = await page.$('[aria-label="Next page"]:not(:disabled)');
