@@ -40,6 +40,15 @@ E.g.
 > npm run start:dev -- --accountId=XXX --packageName=XXX --format=json
 ```
 
+### Data Playground
+There is a data playground.
+If you have VSCode installed, there is a preset in `.vscode/launch.json` which allows you to debug your data processing code.
+Otherwise, you can call it form the command line like so:
+
+```bash
+> npm run playground -- --data=./android-crash-clusters_1557226424411.json
+```
+
 ### Building
 ```bash
 > npm install

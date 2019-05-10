@@ -23,6 +23,21 @@
             "sourceMaps": true,
             "cwd": "${workspaceRoot}",
             "protocol": "inspector",
+        },
+        {
+            "name": "Run Playground",
+            "type": "node",
+            "request": "launch",
+            "args": [
+                "--nolazy",
+                "-r",
+                "ts-node/register",
+                "${workspaceRoot}/src/data-playground.ts",
+                "--data=./android-crash-clusters_1557226424411.json"
+            ],
+            "sourceMaps": true,
+            "cwd": "${workspaceRoot}",
+            "protocol": "inspector",
         }
     ]
 }

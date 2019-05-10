@@ -10,7 +10,8 @@
     "test": "nyc --extension .ts npm run test:no-spec | tap-spec && nyc report --reporter=text-lcov > coverage.lcov",
     "test:full": "TEST_MODE=full npm run test:no-spec",
     "test:no-spec": "NODE_ENV=test ts-node --files -r tsconfig-paths/register node_modules/tape/bin/tape test/**/*.test.ts",
-    "build": "./build.sh"
+    "build": "./build.sh",
+    "playground": "ts-node src/data-playground.ts"
   },
   "files": [
     "bin",
