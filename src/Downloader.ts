@@ -53,6 +53,7 @@ export class Downloader {
         try {
             await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${this.packageName}&appVersion&lastReportedRange=LAST_60_DAYS&clusterName=${clusterId}&detailsAppVersion`)
             await page.waitForSelector('.gwt-viz-container'); // loading
+            await sleep(1000);
 
             const summaryData: any = await page.$eval('[role=article]', (summaryItemsCont: any) => {
                 const summaryItems = [...summaryItemsCont.children];
