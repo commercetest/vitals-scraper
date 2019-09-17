@@ -39,7 +39,7 @@ export class Downloader {
     public async getCrashClusterIds() {
         const page = await this.claimPage();
         try {
-            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${this.packageName}&appVersion&lastReportedRange=LAST_60_DAYS&errorType=CRASH`);
+            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${this.packageName}&appVersion&lastReportedRange=LAST_24_HOURS&errorType=CRASH`);
             const crashClusterIds = await getCrashClusterIds(page);
 
             return crashClusterIds;
@@ -51,7 +51,7 @@ export class Downloader {
     public async getCrashCluster(clusterId: string) {
         const page = await this.claimPage();
         try {
-            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${this.packageName}&appVersion&lastReportedRange=LAST_60_DAYS&clusterName=${clusterId}&detailsAppVersion`)
+            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${this.packageName}&appVersion&lastReportedRange=LAST_24_HOURS&clusterName=${clusterId}&detailsAppVersion`)
             await page.waitForSelector('.gwt-viz-container'); // loading
 
             const summaryData: any = await page.$eval('[role=article]', (summaryItemsCont: any) => {
@@ -146,7 +146,7 @@ export class Downloader {
     public async getCrashClustersForAndroidVersion(androidVersion: AndroidVersion) {
         const page = await this.claimPage();
         try {
-            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${this.packageName}&lastReportedRange=LAST_60_DAYS&appVersion&androidVersion=${androidVersion.androidVersion}`, { waitUntil: 'networkidle0' });
+            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${this.packageName}&lastReportedRange=LAST_24_HOURS&appVersion&androidVersion=${androidVersion.androidVersion}`, { waitUntil: 'networkidle0' });
             const crashClusters = await readCrashClusters(page);
             this.releasePage(page);
             return crashClusters;
