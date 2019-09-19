@@ -19,6 +19,7 @@ vitals-scraper --accountId=XXX --packageName=XXX
 ### Options
 - `--accountId` required
 - `--packageName` required
+- `--numExceptions=2` (default `all`)
 - `--format` (default: `csv`)
 - `--outDir` (default: `./`)
 - `--parallel` (default: `1`)
