@@ -9,6 +9,6 @@ export function fallbackPromise<T>(promise: Promise<T>, fallbackValue: T) {
 
 export function sleep(ms: number) {
     return new Promise((resolve) => {
-        setTimeout(resolve, ms);
+        setTimeout(resolve, ms * (1 + (Math.random() * 2)));
     });
 }

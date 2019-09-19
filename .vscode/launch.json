@@ -18,6 +18,7 @@
                 "--accountId=9116215767541857492",
                 "--packageName=org.kiwix.kiwixmobile",
                 "--days=1",
+                // "--numExceptions=2",
                 "--format=json",
                 // "--parallel=4"
             ],

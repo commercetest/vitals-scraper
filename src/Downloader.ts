@@ -8,14 +8,15 @@ export class Downloader {
     private accountId: string;
     private packageName: string;
     private daysToScrape: number;
-
+    private numExceptions: 'all' | number;
     private claimRequest: Promise<Page> = Promise.resolve(null);
 
-    constructor(parallel: number, packageName: string, accountId: string, daysToScrape: number) {
+    constructor(parallel: number, packageName: string, accountId: string, daysToScrape: number, numExceptions: 'all' | number) {
         this.parallel = Math.abs(Math.max(1, parallel));
         this.accountId = accountId;
         this.packageName = packageName;
         this.daysToScrape = daysToScrape;
+        this.numExceptions = numExceptions;
     }
 
     public async init() {
@@ -99,7 +100,7 @@ export class Downloader {
                     }, {});
             });
 
-            const exceptions = await readExceptionsFromCrashPage(page);
+            const exceptions = await readExceptionsFromCrashPage(page, this.numExceptions);
 
             return {
                 ...summaryData,
@@ -235,7 +236,7 @@ async function getCrashClusterIds(page: Page): Promise<string[]> {
     }
 }
 
-async function readExceptionsFromCrashPage(page: Page): Promise<Array<{ trace: string, title: string, device: string }>> {
+async function readExceptionsFromCrashPage(page: Page, numExceptions: 'all' | number, pageNum: number = 0): Promise<Array<{ trace: string, title: string, device: string }>> {
 
     await page.waitForSelector('section[role=article] .gwt-HTML'); // loading
     await page.waitFor(1000);
@@ -256,10 +257,11 @@ async function readExceptionsFromCrashPage(page: Page): Promise<Array<{ trace: s
         nextPageButton = await page.$('[aria-label="Next page"]:not(:disabled)');
     } catch (err) { /* NOOP */ }
 
-    if (nextPageButton) {
+    const shouldLoadNextPage = numExceptions === 'all' || (numExceptions - 1) > pageNum;
+    if (nextPageButton && shouldLoadNextPage) {
         await nextPageButton.click();
         return [exception].concat(
-            await readExceptionsFromCrashPage(page)
+            await readExceptionsFromCrashPage(page, numExceptions, pageNum + 1)
         );
     } else {
         return [exception];
