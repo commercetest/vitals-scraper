@@ -32,6 +32,14 @@ async function app(argv: any) {
     logger.log(`[--parallel] is not set, defaulting to [${parallel}]`);
   }
 
+  const daysToScrape = argv.days || 7;
+  if (!argv.days) {
+    logger.log(`[--days] is not set, defaulting to [${daysToScrape}]`);
+  }
+  if (![1, 7, 14, 30, 60].includes(daysToScrape)) {
+    throw new Error(`[--days=${argv.days}] is invalid, please supply one of: [1, 7, 14, 30, 60]`);
+  }
+
   const format = argv.format || 'json';
   if (!argv.format) {
     logger.log(
@@ -57,6 +65,7 @@ async function app(argv: any) {
     parallel,
     argv.packageName,
     argv.accountId,
+    daysToScrape,
   );
 
   await downloader.init();

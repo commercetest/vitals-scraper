@@ -7,13 +7,15 @@ export class Downloader {
     private parallel: number = 1;
     private accountId: string;
     private packageName: string;
+    private daysToScrape: number;
 
     private claimRequest: Promise<Page> = Promise.resolve(null);
 
-    constructor(parallel: number, packageName: string, accountId: string) {
+    constructor(parallel: number, packageName: string, accountId: string, daysToScrape: number) {
         this.parallel = Math.abs(Math.max(1, parallel));
         this.accountId = accountId;
         this.packageName = packageName;
+        this.daysToScrape = daysToScrape;
     }
 
     public async init() {
@@ -39,7 +41,7 @@ export class Downloader {
     public async getCrashClusterIds() {
         const page = await this.claimPage();
         try {
-            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${this.packageName}&appVersion&lastReportedRange=LAST_24_HOURS&errorType=CRASH`);
+            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${this.packageName}&appVersion${this.lastReportedRangeStr()}&errorType=CRASH`);
             const crashClusterIds = await getCrashClusterIds(page);
 
             return crashClusterIds;
@@ -51,7 +53,7 @@ export class Downloader {
     public async getCrashCluster(clusterId: string) {
         const page = await this.claimPage();
         try {
-            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${this.packageName}&appVersion&lastReportedRange=LAST_24_HOURS&clusterName=${clusterId}&detailsAppVersion`)
+            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${this.packageName}&appVersion${this.lastReportedRangeStr()}&clusterName=${clusterId}&detailsAppVersion`)
             await page.waitForSelector('.gwt-viz-container'); // loading
             await sleep(1000);
 
@@ -147,7 +149,7 @@ export class Downloader {
     public async getCrashClustersForAndroidVersion(androidVersion: AndroidVersion) {
         const page = await this.claimPage();
         try {
-            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${this.packageName}&lastReportedRange=LAST_24_HOURS&appVersion&androidVersion=${androidVersion.androidVersion}`, { waitUntil: 'networkidle0' });
+            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${this.packageName}${this.lastReportedRangeStr()}&appVersion&androidVersion=${androidVersion.androidVersion}`, { waitUntil: 'networkidle0' });
             const crashClusters = await readCrashClusters(page);
             this.releasePage(page);
             return crashClusters;
@@ -159,6 +161,20 @@ export class Downloader {
 
     public close() {
         this.browser.close();
+    }
+
+    private lastReportedRangeStr() {
+        let reportedRange = '';
+        let detailsSpan = `&detailsSpan=${this.daysToScrape}`;
+        if (this.daysToScrape === 1) {
+            reportedRange = '&lastReportedRange=LAST_24_HRS';
+            detailsSpan = '&detailsSpan=7';
+        } else if (this.daysToScrape === 7) {
+            reportedRange = '';
+        } else {
+            reportedRange = `&lastReportedRange=LAST_${this.daysToScrape}_DAYS`;
+        }
+        return reportedRange + detailsSpan;
     }
 
     private async claimPage(): Promise<Page> {
