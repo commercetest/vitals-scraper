@@ -210,7 +210,7 @@ async function getCrashClusterIds(page: Page): Promise<string[]> {
     try {
         nextPageButton = await page.$('[aria-label="Next page"]:not(:disabled)');
         await nextPageButton.click();
-        await page.waitFor(1000);
+        await sleep(1000);
         return crashClusterIds.concat(
             await getCrashClusterIds(page)
         );
@@ -222,7 +222,7 @@ async function getCrashClusterIds(page: Page): Promise<string[]> {
 async function readExceptionsFromCrashPage(page: Page): Promise<Array<{ trace: string, title: string, device: string }>> {
 
     await page.waitForSelector('section[role=article] .gwt-HTML'); // loading
-    await page.waitFor(1000);
+    await sleep(1000);
 
     const title = await page.$eval('section[role=article] .gwt-Label', el => el.textContent);
     const device = await page.$eval('section[role=article] .gwt-HTML', el => el.textContent);
@@ -270,7 +270,7 @@ async function readCrashClusters(page: Page): Promise<CrashCluster[]> {
         })
     );
 
-    await page.waitFor(1000);
+    await sleep(1000);
     let nextPageButton;
     try {
         nextPageButton = await page.$('[aria-label="Next page"]:not(:disabled)');
@@ -278,7 +278,7 @@ async function readCrashClusters(page: Page): Promise<CrashCluster[]> {
 
     if (nextPageButton) {
         await nextPageButton.click();
-        await page.waitFor(1000);
+        await sleep(1000);
         return crashClusters.concat(
             await readCrashClusters(page)
         );
