@@ -51,12 +51,29 @@ async function app(argv: any) {
     logger.log(`Writing data to [${outputDir}]`);
   }
 
+  let numExceptions: 'all' | number = 'all';
+  if (!argv.numExceptions) {
+    logger.log(`[--numExceptions] is not set, using [${numExceptions}]`);
+  } else {
+    const nE = Number(argv.numExceptions);
+    if (isNaN(nE)) {
+      if (argv.numExceptions !== 'all') {
+        logger.warn(`[--numExceptions] is invalid, please set a number or "all"`);
+      } else {
+        numExceptions = argv.numExceptions;
+      }
+    } else {
+      numExceptions = nE;
+    }
+  }
+
   console.log('\n\n');
 
   const downloader = new Downloader(
     parallel,
     argv.packageName,
     argv.accountId,
+    numExceptions,
   );
 
   await downloader.init();
