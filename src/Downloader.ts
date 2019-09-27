@@ -6,15 +6,13 @@ export class Downloader {
     private pages: Page[] = [];
     private parallel: number = 1;
     private accountId: string;
-    private packageName: string;
     private daysToScrape: number;
     private numExceptions: 'all' | number;
     private claimRequest: Promise<Page> = Promise.resolve(null);
 
-    constructor(parallel: number, packageName: string, accountId: string, daysToScrape: number, numExceptions: 'all' | number) {
+    constructor(parallel: number, accountId: string, daysToScrape: number, numExceptions: 'all' | number) {
         this.parallel = Math.abs(Math.max(1, parallel));
         this.accountId = accountId;
-        this.packageName = packageName;
         this.daysToScrape = daysToScrape;
         this.numExceptions = numExceptions;
     }
@@ -39,10 +37,25 @@ export class Downloader {
         }
     }
 
-    public async getCrashClusterIds() {
+    public async getAvailablePackages() {
         const page = await this.claimPage();
         try {
-            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${this.packageName}&appVersion${this.lastReportedRangeStr()}&errorType=CRASH`);
+            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}`);
+            await page.waitForSelector('[role=article]:nth-of-type(3)');
+            const packageNames = await page.$$eval('tbody:nth-child(3) tr', (trs) => {
+                return trs.map(tr => tr.querySelector('a>div>div:nth-child(2)').textContent);
+            });
+
+            return packageNames.filter(a => a);
+        } finally {
+            this.releasePage(page);
+        }
+    }
+
+    public async getCrashClusterIds(packageName: string) {
+        const page = await this.claimPage();
+        try {
+            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${packageName}&appVersion${this.lastReportedRangeStr()}&errorType=CRASH`);
             const crashClusterIds = await getCrashClusterIds(page);
 
             return crashClusterIds;
@@ -51,10 +64,10 @@ export class Downloader {
         }
     }
 
-    public async getCrashCluster(clusterId: string) {
+    public async getCrashCluster(packageName: string, clusterId: string) {
         const page = await this.claimPage();
         try {
-            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${this.packageName}&appVersion${this.lastReportedRangeStr()}&clusterName=${clusterId}&detailsAppVersion`)
+            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${packageName}&appVersion${this.lastReportedRangeStr()}&clusterName=${clusterId}&detailsAppVersion`)
             await page.waitForSelector('.gwt-viz-container'); // loading
             await sleep(1000);
 
@@ -112,10 +125,10 @@ export class Downloader {
         }
     }
 
-    public async getVitalsOverview() {
+    public async getVitalsOverview(packageName: string) {
         const page = await this.claimPage();
         try {
-            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AppHealthDetailsPlace:p=${this.packageName}&aho=APP_HEALTH_OVERVIEW&ahdt=CRASHES&ts=THIRTY_DAYS&ahbt=BOOKS_AND_REFERENCE`, { waitUntil: 'networkidle0' });
+            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AppHealthDetailsPlace:p=${packageName}&aho=APP_HEALTH_OVERVIEW&ahdt=CRASHES&ts=THIRTY_DAYS&ahbt=BOOKS_AND_REFERENCE`, { waitUntil: 'networkidle0' });
             const tableEl = await page.evaluateHandle(`document.querySelector("body > div:nth-child(5) > div > div:nth-child(2) > div > div:nth-child(2) > div > div.IP4Y5NB-T-c > div > div.IP4Y5NB-G-m > div > div:nth-child(1) > div > div > div.IP4Y5NB-j-z > div:nth-child(2) > fox-app-health-details").shadowRoot.querySelector("div > fox-loading-overlay > fox-app-health-details-breakdown:nth-child(4)").shadowRoot.querySelector("fox-dashboard-async-card > fox-app-health-details-table").shadowRoot.querySelector("table")`);
             const columnTitles: string[] = await tableEl.asElement().$$eval('thead th', els => els.map((th: any) => th.innerText.trim()).filter(a => a)) as any;
             const rows = await tableEl.asElement().$$('tbody tr');
@@ -147,10 +160,10 @@ export class Downloader {
         }
     }
 
-    public async getCrashClustersForAndroidVersion(androidVersion: AndroidVersion) {
+    public async getCrashClustersForAndroidVersion(packageName: string, androidVersion: AndroidVersion) {
         const page = await this.claimPage();
         try {
-            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${this.packageName}${this.lastReportedRangeStr()}&appVersion&androidVersion=${androidVersion.androidVersion}`, { waitUntil: 'networkidle0' });
+            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${packageName}${this.lastReportedRangeStr()}&appVersion&androidVersion=${androidVersion.androidVersion}`, { waitUntil: 'networkidle0' });
             const crashClusters = await readCrashClusters(page);
             this.releasePage(page);
             return crashClusters;

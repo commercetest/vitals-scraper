@@ -16,9 +16,9 @@
                 "tsconfig-paths/register",
                 "${workspaceRoot}/src/index.ts",
                 "--accountId=9116215767541857492",
-                "--packageName=org.kiwix.kiwixmobile",
+                "--packageName=org.kiwix.kiwixmobile,org.kiwix.kiwixcustomphet",
                 "--days=1",
-                // "--numExceptions=2",
+                "--numExceptions=2",
                 "--format=json",
                 // "--parallel=4"
             ],
