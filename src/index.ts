@@ -134,11 +134,9 @@ async function app(argv: any) {
     }
 
     console.log('\n\n');
-
-    downloader.close();
-
     console.info(`Successfully scraped [${packageName}]`);
   }
+  downloader.close();
 }
 
 const startTime = Date.now();
