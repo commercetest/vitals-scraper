@@ -29,10 +29,12 @@ export async function scrapeOverview(argv: any) {
     await downloader.login();
     loginProgress.succeed('Logging In');
 
-    const outFilePath = path.join(outputDir, `android-overview_${Date.now()}.csv `);
+    const runTimestamp = Date.now();
+    const outFilePath = path.join(outputDir, `android-overview_${argv.accountId}_${runTimestamp}.csv `);
     const overviewProgress = ora(`Getting and writing overview to [${outFilePath}]`).start();
 
     const overview = await downloader.getOverview();
+    await downloader.saveScreenshot(`android-overview_${argv.accountId}_${runTimestamp}.png`);
     const headers = Object.keys(overview[0]);
 
     const ssw = new StructuredStreamWriter(StructuredFormat.CSV, outFilePath, headers);

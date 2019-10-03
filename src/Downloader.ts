@@ -61,6 +61,15 @@ export class Downloader {
         }
     }
 
+    public async saveScreenshot(filename: string) {
+        const page = await this.claimPage();
+        try {
+            await page.screenshot({ path: filename, fullPage: true });
+        } finally {
+            this.releasePage(page);
+        }
+    }
+
     public async getCrashClusterIds(packageName: string, daysToScrape: number) {
         const page = await this.claimPage();
         try {
