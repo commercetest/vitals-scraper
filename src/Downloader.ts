@@ -1,20 +1,17 @@
 import puppeteer, { Page, Browser } from 'puppeteer';
 import { fallbackPromise, sleep } from './utils';
 
+type NumExceptions = 'all' | number;
 export class Downloader {
     private browser: Browser;
     private pages: Page[] = [];
     private parallel: number = 1;
     private accountId: string;
-    private daysToScrape: number;
-    private numExceptions: 'all' | number;
     private claimRequest: Promise<Page> = Promise.resolve(null);
 
-    constructor(parallel: number, accountId: string, daysToScrape: number, numExceptions: 'all' | number) {
+    constructor(parallel: number, accountId: string) {
         this.parallel = Math.abs(Math.max(1, parallel));
         this.accountId = accountId;
-        this.daysToScrape = daysToScrape;
-        this.numExceptions = numExceptions;
     }
 
     public async init() {
@@ -37,25 +34,34 @@ export class Downloader {
         }
     }
 
-    public async getAvailablePackages() {
+    public async getOverview() {
         const page = await this.claimPage();
         try {
             await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}`);
-            await page.waitForSelector('[role=article]:nth-of-type(3)');
-            const packageNames = await page.$$eval('tbody:nth-child(3) tr', (trs) => {
-                return trs.map(tr => tr.querySelector('a>div>div:nth-child(2)').textContent);
+            await page.waitForSelector('[role=article] table tbody:nth-of-type(1) tr');
+            const packageDetails = await page.$$eval('[role=article] table tbody:nth-of-type(1) tr', (trs) => {
+                return trs.map(tr => {
+                    const [, $appName, $activeInstalls, $newGooglePlayRating, $lastUpdate, $status] = Array.from(tr.querySelectorAll('td'));
+                    return {
+                        appName: $appName.querySelector('a > div > div').textContent.trim(),
+                        packageName: $appName.querySelector('a > div > div:nth-child(2)').textContent.trim(),
+                        activeInstalls: Number($activeInstalls.textContent.replace(/[^0-9]/g, '')),
+                        newGooglePlayRating: Number($newGooglePlayRating.textContent.replace(/[^0-9\.]/g, '')) || 'n/a',
+                        lastUpdate: $lastUpdate.textContent.trim(),
+                        status: $status.textContent.trim(),
+                    };
+                });
             });
-
-            return packageNames.filter(a => a);
+            return packageDetails;
         } finally {
             this.releasePage(page);
         }
     }
 
-    public async getCrashClusterIds(packageName: string) {
+    public async getCrashClusterIds(packageName: string, daysToScrape: number) {
         const page = await this.claimPage();
         try {
-            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${packageName}&appVersion${this.lastReportedRangeStr()}&errorType=CRASH`);
+            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${packageName}&appVersion${this.lastReportedRangeStr(daysToScrape)}&errorType=CRASH`);
             const crashClusterIds = await getCrashClusterIds(page);
 
             return crashClusterIds;
@@ -64,10 +70,10 @@ export class Downloader {
         }
     }
 
-    public async getCrashCluster(packageName: string, clusterId: string) {
+    public async getCrashCluster(packageName: string, clusterId: string, numExceptions: NumExceptions, daysToScrape: number) {
         const page = await this.claimPage();
         try {
-            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${packageName}&appVersion${this.lastReportedRangeStr()}&clusterName=${clusterId}&detailsAppVersion`)
+            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${packageName}&appVersion${this.lastReportedRangeStr(daysToScrape)}&clusterName=${clusterId}&detailsAppVersion`)
             await page.waitForSelector('.gwt-viz-container'); // loading
             await sleep(1000);
 
@@ -113,7 +119,7 @@ export class Downloader {
                     }, {});
             });
 
-            const exceptions = await readExceptionsFromCrashPage(page, this.numExceptions);
+            const exceptions = await readExceptionsFromCrashPage(page, numExceptions);
 
             return {
                 ...summaryData,
@@ -160,10 +166,10 @@ export class Downloader {
         }
     }
 
-    public async getCrashClustersForAndroidVersion(packageName: string, androidVersion: AndroidVersion) {
+    public async getCrashClustersForAndroidVersion(packageName: string, androidVersion: AndroidVersion, daysToScrape:number) {
         const page = await this.claimPage();
         try {
-            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${packageName}${this.lastReportedRangeStr()}&appVersion&androidVersion=${androidVersion.androidVersion}`, { waitUntil: 'networkidle0' });
+            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${packageName}${this.lastReportedRangeStr(daysToScrape)}&appVersion&androidVersion=${androidVersion.androidVersion}`, { waitUntil: 'networkidle0' });
             const crashClusters = await readCrashClusters(page);
             this.releasePage(page);
             return crashClusters;
@@ -177,16 +183,16 @@ export class Downloader {
         this.browser.close();
     }
 
-    private lastReportedRangeStr() {
+    private lastReportedRangeStr(daysToScrape: number) {
         let reportedRange = '';
-        let detailsSpan = `&detailsSpan=${this.daysToScrape}`;
-        if (this.daysToScrape === 1) {
+        let detailsSpan = `&detailsSpan=${daysToScrape}`;
+        if (daysToScrape === 1) {
             reportedRange = '&lastReportedRange=LAST_24_HRS';
             detailsSpan = '&detailsSpan=7';
-        } else if (this.daysToScrape === 7) {
+        } else if (daysToScrape === 7) {
             reportedRange = '';
         } else {
-            reportedRange = `&lastReportedRange=LAST_${this.daysToScrape}_DAYS`;
+            reportedRange = `&lastReportedRange=LAST_${daysToScrape}_DAYS`;
         }
         return reportedRange + detailsSpan;
     }
