@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Run App",
+            "name": "Run \"crash\"",
             "type": "node",
             "request": "launch",
             "args": [
@@ -21,6 +21,24 @@
                 "--numExceptions=2",
                 "--format=json",
                 // "--parallel=4"
+            ],
+            "sourceMaps": true,
+            "cwd": "${workspaceRoot}",
+            "protocol": "inspector",
+        },
+        {
+            "name": "Run \"overview\"",
+            "type": "node",
+            "request": "launch",
+            "args": [
+                "--nolazy",
+                "-r",
+                "ts-node/register",
+                "-r",
+                "tsconfig-paths/register",
+                "${workspaceRoot}/src/index.ts",
+                "--accountId=9116215767541857492",
+                "--mode=overview"
             ],
             "sourceMaps": true,
             "cwd": "${workspaceRoot}",
