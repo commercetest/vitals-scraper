@@ -47,9 +47,18 @@ export async function scrapeOverview(argv: any) {
         if (row.status != "Published") {
             continue;
         }
-        const url = `https://play.google.com/apps/publish/?account=${argv.accountId}#AppDashboardPlace:p=${row.packageName}&appid=${row.appId}`;
-        const filename = `AppDashboardPlace_${argv.accountId}_${row.packageName}_${runTimestamp}.png`
-        await downloader.takeScreenshotOfUrl(url, filename);
+        const dashboardUrl = `https://play.google.com/apps/publish/?account=${argv.accountId}#AppDashboardPlace:p=${row.packageName}&appid=${row.appId}`;
+        const dashboardFilename = `AppDashboardPlace_${argv.accountId}_${row.packageName}_${runTimestamp}.png`;
+        await downloader.takeScreenshotOfUrl(dashboardUrl, dashboardFilename);
+
+        const vitalsOverviewUrl = `https://play.google.com/apps/publish/?account=${argv.accountId}#AppHealthOverviewPlace:p=${row.packageName}&appid=${row.appId}&ts=THIRTY_DAYS&ahbt=_CUSTOM`;
+        const vitalsOverviewFilename = `AppDashboardPlace_${argv.accountId}_${row.packageName}_${runTimestamp}.png`;
+        await downloader.takeScreenshotOfUrl(vitalsOverviewUrl, vitalsOverviewFilename);
+
+        // https://play.google.com/apps/publish/?account=9116215767541857492#AppHealthDetailsPlace:p=org.kiwix.kiwixmobile&appid=4975184706939091905&aho=APP_HEALTH_OVERVIEW&ahdt=CRASHES&ts=THIRTY_DAYS&ahbt=_CUSTOM
+        const vitalsCrashOverviewUrl = `https://play.google.com/apps/publish/?account=${argv.accountId}#AppHealthDetailsPlace:p=${row.packageName}&appid=${row.appId}&aho=APP_HEALTH_OVERVIEW&ahdt=CRASHES&ts=THIRTY_DAYS&ahbt=_CUSTOM`;
+        const vitalsCrashOverviewFilename = `AppHealthDetailsPlace_${argv.accountId}_${row.packageName}_${runTimestamp}.png`;
+        await downloader.takeScreenshotOfUrl(vitalsCrashOverviewUrl, vitalsOverviewFilename);
         }
 
     await downloader.close();
