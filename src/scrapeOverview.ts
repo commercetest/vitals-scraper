@@ -41,8 +41,18 @@ export async function scrapeOverview(argv: any) {
     for (const row of overview) {
         ssw.writeItem(row);
     }
+    ssw.done();
+
+    for (const row of overview) {
+        if (row.status != "Published") {
+            continue;
+        }
+        const url = `https://play.google.com/apps/publish/?account=${argv.accountId}#AppDashboardPlace:p=${row.packageName}&appid=${row.appId}`;
+        const filename = `AppDashboardPlace_${argv.accountId}_${row.packageName}_${runTimestamp}.png`
+        await downloader.takeScreenshotOfUrl(url, filename);
+        }
 
     await downloader.close();
-    ssw.done();
+
     overviewProgress.succeed(`Got and written overview to [${outFilePath}]`);
 }
