@@ -42,7 +42,9 @@ export class Downloader {
             await page.waitForSelector('[role=article] table tbody:nth-of-type(1) tr');
             const packageDetails = await page.$$eval('[role=article] table tbody:nth-of-type(1) tr', (trs) => {
                 return trs.map(tr => {
-                    const [, $appName, $activeInstalls, $newGooglePlayRating, $lastUpdate, $status] = Array.from(tr.querySelectorAll('td'));
+                    const cols = Array.from(tr.querySelectorAll('td')).filter(td => td.textContent);
+
+                    const [$appName, $activeInstalls, $newGooglePlayRating, $lastUpdate, $status] = cols;
                     return {
                         appName: $appName.querySelector('a > div > div').textContent.trim(),
                         packageName: $appName.querySelector('a > div > div:nth-child(2)').textContent.trim(),
@@ -167,7 +169,7 @@ export class Downloader {
         }
     }
 
-    public async getCrashClustersForAndroidVersion(packageName: string, androidVersion: AndroidVersion, daysToScrape:number) {
+    public async getCrashClustersForAndroidVersion(packageName: string, androidVersion: AndroidVersion, daysToScrape: number) {
         const page = await this.claimPage();
         try {
             await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${packageName}${this.lastReportedRangeStr(daysToScrape)}&appVersion&androidVersion=${androidVersion.androidVersion}`, { waitUntil: 'networkidle0' });
