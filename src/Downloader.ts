@@ -15,8 +15,8 @@ export class Downloader {
     }
 
     public async init() {
-        this.browser = await puppeteer.launch({ headless: false , defaultViewport: null});
-    
+        this.browser = await puppeteer.launch({ headless: false, defaultViewport: null });
+
 
         for (let i = 0; i < this.parallel; i++) {
             const page = await this.browser.newPage();
@@ -43,6 +43,8 @@ export class Downloader {
             const packageDetails = await page.$$eval('[role=article] table tbody:nth-of-type(1) tr', (trs) => {
                 return trs.map(tr => {
                     const cols = Array.from(tr.querySelectorAll('td')).filter(td => td.textContent);
+                    // const appHrefs = await page.$$eval('[aria-label*="package"]', (as: any[]) => as.map(a => a.href));
+                    const href = tr.querySelector<HTMLAnchorElement>('[aria-label*="package"]').href;
 
                     const [$appName, $activeInstalls, $newGooglePlayRating, $lastUpdate, $status] = cols;
                     return {
@@ -52,10 +54,39 @@ export class Downloader {
                         newGooglePlayRating: Number($newGooglePlayRating.textContent.replace(/[^0-9\.]/g, '')) || 'n/a',
                         lastUpdate: $lastUpdate.textContent.trim(),
                         status: $status.textContent.trim(),
+                        href,
                     };
                 });
             });
-            return packageDetails;
+            return packageDetails.map(detail => {
+                const href = detail.href;
+                delete detail.href;
+                return {
+                    ...detail,
+                    appId: parseHash(href).appid,
+                };
+            });
+        } finally {
+            this.releasePage(page);
+        }
+    }
+
+    public async saveScreenshot(filename: string) {
+        const page = await this.claimPage();
+        try {
+            await page.screenshot({ path: filename, fullPage: true });
+        } finally {
+            this.releasePage(page);
+        }
+    }
+
+    public async takeScreenshotOfUrl(url: string, filename: string) {
+        const page = await this.claimPage();
+        try {
+            await page.goto(url);
+            await sleep(5000);  // This is a hack rather than determining what to wait for on each page
+            // TBD whether it's good enough.
+            await page.screenshot({ path: filename, fullPage: true });
         } finally {
             this.releasePage(page);
         }
@@ -224,8 +255,8 @@ export class Downloader {
     }
 }
 
-function parseHash(hash: string) {
-    return hash.split('&')
+function parseHash(hash: string): any {
+    return hash.split('#').slice(1).join('#').split('&')
         .reduce((acc, kvPair) => {
             const [key, value] = kvPair.split('=');
             return {
