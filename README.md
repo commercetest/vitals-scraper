@@ -24,7 +24,7 @@ The program can run in two modes:
 - `--accountId` required
 - `--packageName` required (`*` would download data for all the apps on the account)
 - `--days` (default `7`)
-- `--mode` (deafult `crashes`)
+- `--mode` (default `crashes`)
 - `--numExceptions=2` (default `all`)
 - `--format` (default: `csv`)
 - `--outDir` (default: `./`)
