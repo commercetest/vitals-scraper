@@ -13,24 +13,31 @@
 npm i -g vitals-scraper
 
 # Run
-vitals-scraper --accountId=XXX --packageName=XXX
+vitals-scraper --accountId=XXX --packageName=XXX --mode=overview
 ```
+The program can run in two modes: 
+
+1. to obtain an overview of various data about one or more of the apps on your Google Play developer account. The program outputs a csv file of summary data together with several screenshots of various reports per app you specify.
+2. to download crash data for one or more of your apps on your Google Play developer account. for the Java packagenames specified in the `--packageName` command-line parameter. 
 
 ### Options
 - `--accountId` required
-- `--packageName` required
+- `--packageName` required (`*` would download data for all the apps on the account)
 - `--days` (default `7`)
+- `--mode` (deafult `crashes`)
 - `--numExceptions=2` (default `all`)
 - `--format` (default: `csv`)
 - `--outDir` (default: `./`)
 - `--parallel` (default: `1`)
 - `--verbose` (default: `false`)
 
+### Examples of command-lines
+`npm run start:dev -- --accountId=<add-your-accountId> --mode=overview`
 
 ## Contributing
 ### Running
 #### VSCode Debugger
-If you use VSCode, there is a pre-configured launch config: [`.vscode/launch.json`](.vscode/launch.json).
+If you use VSCode, there is a pre-configured launch config: [`.vscode/launch.json`](.vscode/launch.json). Note: this contains several examples of how to run the program so it may be worth reading even if you are not using VSCode.
 
 This is preferable as no compilation step is required, and breakpoints can be used.
 
