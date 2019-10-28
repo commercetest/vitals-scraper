@@ -30,7 +30,7 @@ export async function scrapeOverview(argv: any) {
     loginProgress.succeed('Logging In');
 
     const runTimestamp = Date.now();
-    const outFilePath = path.join(outputDir, `android-overview_${argv.accountId}_${runTimestamp}.csv `);
+    const outFilePath = path.join(outputDir, `android-overview_${argv.accountId}_${runTimestamp}.csv`);
     const overviewProgress = ora(`Getting and writing overview to [${outFilePath}]`).start();
 
     const overview = await downloader.getOverview();
