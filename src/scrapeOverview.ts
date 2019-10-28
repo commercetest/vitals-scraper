@@ -52,12 +52,12 @@ export async function scrapeOverview(argv: any) {
         await downloader.takeScreenshotOfUrl(dashboardUrl, dashboardFilename);
 
         const vitalsOverviewUrl = `https://play.google.com/apps/publish/?account=${argv.accountId}#AppHealthOverviewPlace:p=${row.packageName}&appid=${row.appId}&ts=THIRTY_DAYS&ahbt=_CUSTOM`;
-        const vitalsOverviewFilename = `AppDashboardPlace_${argv.accountId}_${row.packageName}_${runTimestamp}.png`;
+        const vitalsOverviewFilename = `AppHealthOverviewPlace_${argv.accountId}_${row.packageName}_${runTimestamp}.png`;
         await downloader.takeScreenshotOfUrl(vitalsOverviewUrl, vitalsOverviewFilename);
 
         const vitalsCrashOverviewUrl = `https://play.google.com/apps/publish/?account=${argv.accountId}#AppHealthDetailsPlace:p=${row.packageName}&appid=${row.appId}&aho=APP_HEALTH_OVERVIEW&ahdt=CRASHES&ts=THIRTY_DAYS&ahbt=_CUSTOM`;
         const vitalsCrashOverviewFilename = `AppHealthDetailsPlace_${argv.accountId}_${row.packageName}_${runTimestamp}.png`;
-        await downloader.takeScreenshotOfUrl(vitalsCrashOverviewUrl, vitalsOverviewFilename);
+        await downloader.takeScreenshotOfUrl(vitalsCrashOverviewUrl, vitalsCrashOverviewFilename);
         }
 
     await downloader.close();
