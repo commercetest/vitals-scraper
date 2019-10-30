@@ -26,7 +26,10 @@ export async function scrapeCrashes(argv: any) {
     const daysToScrape = argv.days || 7;
     if (!argv.days) {
         logger.log(`[--days] is not set, defaulting to[${daysToScrape}]`);
+    } else {
+        logger.log(`scraping for [${daysToScrape}]`);
     }
+
     if (![1, 7, 14, 30, 60].includes(daysToScrape)) {
         throw new Error(`[--days=${argv.days}] is invalid, please supply one of: [1, 7, 14, 30, 60]`);
     }
@@ -64,6 +67,7 @@ export async function scrapeCrashes(argv: any) {
         } else {
             numExceptions = nE;
         }
+        logger.log(`[--numExceptions] specified, [${numExceptions}] will be retrieved`);
     }
 
     console.log('\n\n');
@@ -80,23 +84,26 @@ export async function scrapeCrashes(argv: any) {
     loginProgress.succeed('Logging In');
 
     const availablePackages = await downloader.getOverview();
-    const availablePackageNames = availablePackages.map(p => p.packageName);
-    let packageNamesToScrape = argv.packageName.split(',');
-    if (packageNamesToScrape === '*') {
-        packageNamesToScrape = availablePackageNames;
-    }
-
-    for (const packageName of packageNamesToScrape) {
-        if (!availablePackageNames.includes(packageName)) {
-            downloader.close();
-            throw new Error(`Package name[${packageName}]is not available`);
+    // Remove any suspended and draft apps from the set of available packages as these aren't in use.
+    const publishedPackages = availablePackages.filter(p => p.status == "Published");
+    console.log(publishedPackages)
+    const publishedPackageNames = publishedPackages.map(p => p.packageName);
+     let packageNamesToScrape = argv.packageName.split(',');
+    if (packageNamesToScrape == '*') {
+        packageNamesToScrape = publishedPackageNames;
+    } else {
+        for (const packageName of packageNamesToScrape) {
+            if (!publishedPackageNames.includes(packageName)) {
+                downloader.close();
+                throw new Error(`Package name[${packageName}]is not available`);
+            }
         }
     }
 
     for (const packageName of packageNamesToScrape) {
         console.info(`Scraping package [${packageName}]`);
 
-        const outFilePath = path.join(outputDir, `android-crash-clusters_${Date.now()}.${format} `);
+        const outFilePath = path.join(outputDir, `android-crash-clusters-${packageName}_${Date.now()}.${format} `);
         const clustersProgress = ora(`[${packageName}] Getting and writing crash clusters to [${outFilePath}]`).start();
 
         try {

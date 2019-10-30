@@ -27,6 +27,28 @@
             "protocol": "inspector",
         },
         {
+            "name": "Run \"crash\" for all apps using wildcard",
+            "type": "node",
+            "request": "launch",
+            "args": [
+                "--nolazy",
+                "-r",
+                "ts-node/register",
+                "-r",
+                "tsconfig-paths/register",
+                "${workspaceRoot}/src/index.ts",
+                "--accountId=9116215767541857492",
+                "--packageName=*",
+                "--days=1",
+                "--numExceptions=3",
+                "--format=json",
+                // "--parallel=4"
+            ],
+            "sourceMaps": true,
+            "cwd": "${workspaceRoot}",
+            "protocol": "inspector",
+        },
+        {
             "name": "Run \"overview\"",
             "type": "node",
             "request": "launch",
