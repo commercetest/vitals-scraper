@@ -96,9 +96,17 @@ export class Downloader {
         const page = await this.claimPage();
         try {
             await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${packageName}&appVersion${this.lastReportedRangeStr(daysToScrape)}&errorType=CRASH`);
-            const crashClusterIds = await getCrashClusterIds(page);
+            console.log("getCrashClusterIds url of page is: " + page.url());
+            const crashClusterCount = await checkForCrashClusters(page);
 
+            if (crashClusterCount == 0) {
+                return [];
+            }
+
+            const crashClusterIds = await getCrashClusterIds(page);
             return crashClusterIds;
+
+
         } finally {
             this.releasePage(page);
         }
@@ -264,6 +272,45 @@ function parseHash(hash: string): any {
                 [key]: value
             };
         }, {});
+}
+
+async function checkForCrashClusters(page: Page): Promise<number> {
+    await sleep(7500).then(() => console.log('Hello after first sleep'));
+    
+    await page.waitForSelector('.gwt-Label');
+
+    await sleep(7500).then(() => console.log('Hello after second sleep'));
+
+    var clusters = 0;
+    const labels = await page.$$eval('.gwt-Label', (el: any[]) => el.map(el => el.textContent));
+    const realTimeCrashesText = labels.filter(textContent => textContent.includes("Real-time crashes"));
+    const screenshotFilename = `realtime-crashes-screenshot_${Date.now()}.png`;
+    if (realTimeCrashesText.length == 0) {
+        console.log("Warning, 'Real-time crashes' message not found, is something wrong? see " + screenshotFilename);
+        await page.screenshot({ path: screenshotFilename, fullPage: true });
+
+    } else {
+        // We're on the right page, hopefully... Now try to get the count. 
+        // The count is only provided when there are 0 crash clusters or less than a page worth.
+        console.log("Info, 'Real-time crashes' message found, see " + screenshotFilename);
+        await page.screenshot({ path: screenshotFilename, fullPage: true });
+
+        const clusterText = labels.filter(textContent => textContent.includes("crash clusters")).toString();
+
+        if (clusterText.length > 0) {
+            clusters = parseInt(clusterText);
+            console.log("Found [" + clusters + "] crash clusters");
+        } else {
+            console.log("No count available, assuming at least a page of crash clusters.")
+            clusters = -1;  // We assume there are plenty but don't know for sure.
+        }
+    }
+
+    // const publishedPackages = availablePackages.filter(p => p.status == "Published");
+    // const gwtLabels = await page.$$eval('[.gwt-Label]]', (as: any[]) => as.map());
+    // els => els.forEach((el: any) => el.click()));
+    // const crashUrl: string = await row.$eval('.related-link', (el: any) => el.href) as any;
+    return clusters;
 }
 
 async function getCrashClusterIds(page: Page): Promise<string[]> {

@@ -103,25 +103,25 @@ export async function scrapeCrashes(argv: any) {
     for (const packageName of packageNamesToScrape) {
         console.info(`Scraping package [${packageName}]`);
 
-        const outFilePath = path.join(outputDir, `android-crash-clusters-${packageName}_${Date.now()}.${format} `);
+        const outFilePath = path.join(outputDir, `android-crash-clusters-${packageName}_${Date.now()}.${format}`);
         const clustersProgress = ora(`[${packageName}] Getting and writing crash clusters to [${outFilePath}]`).start();
 
-        try {
-            const fileWriter = new StructuredStreamWriter(format, outFilePath);
+        try { 
             const clusterIds = await downloader.getCrashClusterIds(packageName, daysToScrape);
-            let completedScrapeIndex = 0;
-            await Promise.all(
-                clusterIds.map(id => downloader.getCrashCluster(packageName, id, numExceptions, daysToScrape).then((ret) => {
-                    const progressPercentage = Math.round(completedScrapeIndex / clusterIds.length * 100);
-                    clustersProgress.info(`Getting and writing crash clusters to [${outFilePath}] [${completedScrapeIndex}/${clusterIds.length}] [${progressPercentage}%]`);
-                    logger.info(`Got crash cluster detail [${completedScrapeIndex}/${clusterIds.length}] [${progressPercentage}%]`);
-                    completedScrapeIndex += 1;
-                    return fileWriter.writeItem(ret);
-                }))
-            );
-
-            fileWriter.done();
-
+            if (clusterIds.length > 0) {
+                const fileWriter = new StructuredStreamWriter(format, outFilePath);
+                let completedScrapeIndex = 0;
+                await Promise.all(
+                    clusterIds.map(id => downloader.getCrashCluster(packageName, id, numExceptions, daysToScrape).then((ret) => {
+                        const progressPercentage = Math.round(completedScrapeIndex / clusterIds.length * 100);
+                        clustersProgress.info(`Getting and writing crash clusters to [${outFilePath}] [${completedScrapeIndex}/${clusterIds.length}] [${progressPercentage}%]`);
+                        logger.info(`Got crash cluster detail [${completedScrapeIndex}/${clusterIds.length}] [${progressPercentage}%]`);
+                        completedScrapeIndex += 1;
+                        return fileWriter.writeItem(ret);
+                    }))
+                );
+                fileWriter.done();
+            }
             clustersProgress.succeed();
 
         } catch (err) {
