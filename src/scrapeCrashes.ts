@@ -85,18 +85,16 @@ export async function scrapeCrashes(argv: any) {
 
     const availablePackages = await downloader.getOverview();
     // Remove any suspended and draft apps from the set of available packages as these aren't in use.
-    const publishedPackages = availablePackages.filter(p => p.status == "Published");
-    console.log("Details of the published packages for this account:")
-    console.log(publishedPackages)
+    const publishedPackages = availablePackages.filter(p => p.status === 'Published');
     const publishedPackageNames = publishedPackages.map(p => p.packageName);
-     let packageNamesToScrape = argv.packageName.split(',');
-    if (packageNamesToScrape == '*') {
+    let packageNamesToScrape = argv.packageName.split(',');
+    if (packageNamesToScrape.includes('*')) {
         packageNamesToScrape = publishedPackageNames;
     } else {
         for (const packageName of packageNamesToScrape) {
             if (!publishedPackageNames.includes(packageName)) {
                 downloader.close();
-                throw new Error(`Package name[${packageName}]is not available`);
+                throw new Error(`Package name [${packageName}]is not available`);
             }
         }
     }
@@ -107,7 +105,7 @@ export async function scrapeCrashes(argv: any) {
         const outFilePath = path.join(outputDir, `android-crash-clusters-${packageName}_${Date.now()}.${format}`);
         const clustersProgress = ora(`[${packageName}] Getting and writing crash clusters to [${outFilePath}]`).start();
 
-        try { 
+        try {
             const clusterIds = await downloader.getCrashClusterIds(packageName, daysToScrape);
             if (clusterIds.length > 0) {
                 const fileWriter = new StructuredStreamWriter(format, outFilePath);
