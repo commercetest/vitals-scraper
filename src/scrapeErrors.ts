@@ -2,9 +2,11 @@ import { logger } from './utils';
 import ora from 'ora';
 import * as path from 'path';
 import { Downloader } from './Downloader';
-import { StructuredStreamWriter } from './utils/structuredStreamWriter';
+import { StructuredStreamWriter, StructuredFormat } from './utils/structuredStreamWriter';
 
-export async function scrapeCrashes(argv: any) {
+const validErrorTypes = ['crash', 'ANR'];
+
+export async function scrapeErrors(argv: any) {
     if (!argv.accountId) {
         throw new Error(`No [--accountId] set, this is required`);
     }
@@ -12,20 +14,30 @@ export async function scrapeCrashes(argv: any) {
         throw new Error(`No [--packageName] set, this is required`);
     }
 
+    const errorTypes: string[] = (argv.errorType || 'crash,ANR').split(',');
+    if (!argv.errorType) {
+        logger.log(`[--errorType] is not set, defaulting to [${errorTypes.join(',')}] (options: crash,ANR)`);
+    } else {
+        const invalidErrorType = errorTypes.find((et: string) => !validErrorTypes.includes(et));
+        if (invalidErrorType) {
+            throw new Error(`An invalid errorType was specified (${invalidErrorType}), valid options are [crash,ANR]`);
+        }
+    }
+
     const verbose = argv.verbose || false;
     if (!argv.verbose) {
-        logger.log(`[--verbose] is not set, defaulting to[${verbose}]`);
+        logger.log(`[--verbose] is not set, defaulting to [${verbose}]`);
     }
     (process as any).verbose = verbose;
 
     const parallel = argv.parallel || 1;
     if (!argv.parallel) {
-        logger.log(`[--parallel] is not set, defaulting to[${parallel}]`);
+        logger.log(`[--parallel] is not set, defaulting to [${parallel}]`);
     }
 
     const daysToScrape = argv.days || 7;
     if (!argv.days) {
-        logger.log(`[--days] is not set, defaulting to[${daysToScrape}]`);
+        logger.log(`[--days] is not set, defaulting to [${daysToScrape}]`);
     } else {
         logger.log(`scraping for [${daysToScrape}]`);
     }
@@ -37,7 +49,7 @@ export async function scrapeCrashes(argv: any) {
     const format = argv.format || 'json';
     if (!argv.format) {
         logger.log(
-            `[--format] is not set, defaulting to [${format}](options: json | csv)`
+            `[--format] is not set, defaulting to [${format}] (options: json | csv)`
         );
     }
     if (format !== 'json') {
@@ -102,35 +114,56 @@ export async function scrapeCrashes(argv: any) {
     for (const packageName of packageNamesToScrape) {
         console.info(`Scraping package [${packageName}]`);
 
-        const outFilePath = path.join(outputDir, `android-crash-clusters-${packageName}_${Date.now()}.${format}`);
-        const clustersProgress = ora(`[${packageName}] Getting and writing crash clusters to [${outFilePath}]`).start();
-
-        try {
-            const clusterIds = await downloader.getCrashClusterIds(packageName, daysToScrape);
-            if (clusterIds.length > 0) {
-                const fileWriter = new StructuredStreamWriter(format, outFilePath);
-                let completedScrapeIndex = 0;
-                await Promise.all(
-                    clusterIds.map(id => downloader.getCrashCluster(packageName, id, numExceptions, daysToScrape).then((ret) => {
-                        const progressPercentage = Math.round(completedScrapeIndex / clusterIds.length * 100);
-                        clustersProgress.info(`Getting and writing crash clusters to [${outFilePath}] [${completedScrapeIndex}/${clusterIds.length}] [${progressPercentage}%]`);
-                        logger.info(`Got crash cluster detail [${completedScrapeIndex}/${clusterIds.length}] [${progressPercentage}%]`);
-                        completedScrapeIndex += 1;
-                        return fileWriter.writeItem(ret);
-                    }))
-                );
-                fileWriter.done();
-            }
-            clustersProgress.succeed();
-
-        } catch (err) {
-            clustersProgress.fail();
-            console.info(`Failed to scrape [${packageName}]`);
-            throw err;
+        for (const errorType of errorTypes) {
+            await scrapeErrorClusters(
+                errorType as 'crash' | 'ANR',
+                downloader,
+                outputDir,
+                packageName,
+                daysToScrape,
+                numExceptions,
+                format,
+            );
         }
 
         console.log('\n\n');
         console.info(`Successfully scraped [${packageName}]`);
     }
     downloader.close();
+}
+
+async function scrapeErrorClusters(
+    errorType: 'crash' | 'ANR',
+    downloader: Downloader,
+    outputDir: string,
+    packageName: string,
+    daysToScrape: number,
+    numExceptions: number | 'all',
+    format: StructuredFormat) {
+    const outFilePath = path.join(outputDir, `android-${errorType}-clusters-${packageName}_${Date.now()}.${format}`);
+    const clustersProgress = ora(`[${packageName}] Getting and writing ${errorType} clusters to [${outFilePath}]`).start();
+
+    try {
+        const clusterIds = await downloader.getErrorClusterIds(errorType, packageName, daysToScrape);
+        if (clusterIds.length > 0) {
+            const fileWriter = new StructuredStreamWriter(format, outFilePath);
+            let completedScrapeIndex = 0;
+            await Promise.all(
+                clusterIds.map(id => downloader.getErrorCluster(errorType, packageName, id, numExceptions, daysToScrape).then((ret) => {
+                    const progressPercentage = Math.round(completedScrapeIndex / clusterIds.length * 100);
+                    clustersProgress.info(`Getting and writing ${errorType} clusters to [${outFilePath}] [${completedScrapeIndex}/${clusterIds.length}] [${progressPercentage}%]`);
+                    logger.info(`Got ${errorType} cluster detail [${completedScrapeIndex}/${clusterIds.length}] [${progressPercentage}%]`);
+                    completedScrapeIndex += 1;
+                    return fileWriter.writeItem(ret);
+                }))
+            );
+            fileWriter.done();
+        }
+        clustersProgress.succeed();
+
+    } catch (err) {
+        clustersProgress.fail();
+        console.info(`Failed to scrape [${packageName}]`);
+        throw err;
+    }
 }
