@@ -84,7 +84,8 @@ export class Downloader {
         const page = await this.claimPage();
         try {
             await page.goto(url);
-            await sleep(5000);  // This is a hack rather than determining what to wait for on each page
+            await sleep(1000);  // This is a hack rather than determining what to wait for on each page
+            await page.waitFor(3422);
             // TBD whether it's good enough.
             await page.screenshot({ path: filename, fullPage: true });
         } finally {
@@ -100,10 +101,12 @@ export class Downloader {
             const crashClusterCount = await checkForCrashClusters(page);
 
             if (crashClusterCount == 0) {
+                console.log("0 crash clusters: no scraping needed.")
                 return [];
             }
 
             const crashClusterIds = await getCrashClusterIds(page);
+            console.log("Retrieved [" + crashClusterIds.length + "] crash cluster ids")
             return crashClusterIds;
 
 
@@ -117,7 +120,8 @@ export class Downloader {
         try {
             await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${packageName}&appVersion${this.lastReportedRangeStr(daysToScrape)}&clusterName=${clusterId}&detailsAppVersion`)
             await page.waitForSelector('.gwt-viz-container'); // loading
-            await sleep(1000);
+            await sleep(200);
+            await page.waitFor(837);
 
             const summaryData: any = await page.$eval('[role=article]', (summaryItemsCont: any) => {
                 const summaryItems = [...summaryItemsCont.children];
@@ -275,11 +279,16 @@ function parseHash(hash: string): any {
 }
 
 async function checkForCrashClusters(page: Page): Promise<number> {
-    await sleep(7500).then(() => console.log('Hello after first sleep'));
-    
+    await sleep(1500).then(() => console.log('Hello after first sleep'));
+    await page.waitFor(4770);
+
+    // TODO waiting for .gwt-Label is not definitive as many pages have these 
+    // CSS selectors, so what's unique yet consistently identifiable AND 
+    // available on this page?
     await page.waitForSelector('.gwt-Label');
 
-    await sleep(7500).then(() => console.log('Hello after second sleep'));
+    await sleep(900).then(() => console.log('Hello after second sleep'));
+    await page.waitFor(1004);
 
     var clusters = 0;
     const labels = await page.$$eval('.gwt-Label', (el: any[]) => el.map(el => el.textContent));
@@ -302,6 +311,8 @@ async function checkForCrashClusters(page: Page): Promise<number> {
             console.log("Found [" + clusters + "] crash clusters");
         } else {
             console.log("No count available, assuming at least a page of crash clusters.")
+            // Could we also save the contents of the page for post-hoc analysis? I've seen 1 crash cluster
+            // shown in  realtime-crashes-screenshot_1572475282166.png yet our code didn't find a match.
             clusters = -1;  // We assume there are plenty but don't know for sure.
         }
     }
@@ -327,7 +338,8 @@ async function getCrashClusterIds(page: Page): Promise<string[]> {
     try {
         nextPageButton = await page.$('[aria-label="Next page"]:not(:disabled)');
         await nextPageButton.click();
-        await sleep(1000);
+        await page.waitFor(120);
+        await sleep(200);
         return crashClusterIds.concat(
             await getCrashClusterIds(page)
         );
@@ -339,7 +351,8 @@ async function getCrashClusterIds(page: Page): Promise<string[]> {
 async function readExceptionsFromCrashPage(page: Page, numExceptions: 'all' | number, pageNum: number = 0): Promise<Array<{ trace: string, title: string, device: string }>> {
 
     await page.waitForSelector('section[role=article] .gwt-HTML'); // loading
-    await sleep(1000);
+    await page.waitFor(760);
+    await sleep(340);
 
     const title = await page.$eval('section[role=article] .gwt-Label', el => el.textContent);
     const device = await page.$eval('section[role=article] .gwt-HTML', el => el.textContent);
@@ -388,7 +401,7 @@ async function readCrashClusters(page: Page): Promise<CrashCluster[]> {
         })
     );
 
-    await sleep(1000);
+    await sleep(660);
     let nextPageButton;
     try {
         nextPageButton = await page.$('[aria-label="Next page"]:not(:disabled)');
@@ -396,7 +409,8 @@ async function readCrashClusters(page: Page): Promise<CrashCluster[]> {
 
     if (nextPageButton) {
         await nextPageButton.click();
-        await sleep(1000);
+        await sleep(101);
+        await page.waitFor(1590);
         return crashClusters.concat(
             await readCrashClusters(page)
         );

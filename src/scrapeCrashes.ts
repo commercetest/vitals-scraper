@@ -86,6 +86,7 @@ export async function scrapeCrashes(argv: any) {
     const availablePackages = await downloader.getOverview();
     // Remove any suspended and draft apps from the set of available packages as these aren't in use.
     const publishedPackages = availablePackages.filter(p => p.status == "Published");
+    console.log("Details of the published packages for this account:")
     console.log(publishedPackages)
     const publishedPackageNames = publishedPackages.map(p => p.packageName);
      let packageNamesToScrape = argv.packageName.split(',');
