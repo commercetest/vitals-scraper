@@ -30,6 +30,7 @@ export class Downloader {
         try {
             await page.goto('https://play.google.com/apps/publish');
             await page.waitForResponse(response => response.url().includes('AppListPlace'), { timeout: null });
+            await pageLoadFinished(page);
         } finally {
             this.releasePage(page);
         }
@@ -39,7 +40,7 @@ export class Downloader {
         const page = await this.claimPage();
         try {
             await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}`);
-            await page.waitForSelector('[role=article] table tbody:nth-of-type(1) tr');
+            await pageLoadFinished(page);
             const packageDetails = await page.$$eval('[role=article] table tbody:nth-of-type(1) tr', (trs) => {
                 return trs.map(tr => {
                     const cols = Array.from(tr.querySelectorAll('td')).filter(td => td.textContent);
@@ -84,7 +85,7 @@ export class Downloader {
         const page = await this.claimPage();
         try {
             await page.goto(url);
-            await sleep(1000);
+            await pageLoadFinished(page);
             await page.screenshot({ path: filename, fullPage: true });
         } finally {
             this.releasePage(page);
@@ -95,10 +96,11 @@ export class Downloader {
         const page = await this.claimPage();
         try {
             await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${packageName}&appVersion${this.lastReportedRangeStr(daysToScrape)}&errorType=CRASH`);
+            await pageLoadFinished(page);
             const crashClusterCount = await checkForCrashClusters(page);
 
             if (crashClusterCount === 0) {
-                console.log('0 crash clusters: no scraping needed.')
+                console.log('0 crash clusters: no scraping needed.');
                 return [];
             }
 
@@ -115,8 +117,7 @@ export class Downloader {
         const page = await this.claimPage();
         try {
             await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${packageName}&appVersion${this.lastReportedRangeStr(daysToScrape)}&clusterName=${clusterId}&detailsAppVersion`)
-            await page.waitForSelector('.gwt-viz-container'); // loading
-            await sleep(200);
+            await pageLoadFinished(page);
 
             const summaryData: any = await page.$eval('[role=article]', (summaryItemsCont: any) => {
                 const summaryItems = [...summaryItemsCont.children];
@@ -176,6 +177,7 @@ export class Downloader {
         const page = await this.claimPage();
         try {
             await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AppHealthDetailsPlace:p=${packageName}&aho=APP_HEALTH_OVERVIEW&ahdt=CRASHES&ts=THIRTY_DAYS&ahbt=BOOKS_AND_REFERENCE`, { waitUntil: 'networkidle0' });
+            await pageLoadFinished(page);
             const tableEl = await page.evaluateHandle(`document.querySelector("body > div:nth-child(5) > div > div:nth-child(2) > div > div:nth-child(2) > div > div.IP4Y5NB-T-c > div > div.IP4Y5NB-G-m > div > div:nth-child(1) > div > div > div.IP4Y5NB-j-z > div:nth-child(2) > fox-app-health-details").shadowRoot.querySelector("div > fox-loading-overlay > fox-app-health-details-breakdown:nth-child(4)").shadowRoot.querySelector("fox-dashboard-async-card > fox-app-health-details-table").shadowRoot.querySelector("table")`);
             const columnTitles: string[] = await tableEl.asElement().$$eval('thead th', els => els.map((th: any) => th.innerText.trim()).filter(a => a)) as any;
             const rows = await tableEl.asElement().$$('tbody tr');
@@ -211,6 +213,7 @@ export class Downloader {
         const page = await this.claimPage();
         try {
             await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${packageName}${this.lastReportedRangeStr(daysToScrape)}&appVersion&androidVersion=${androidVersion.androidVersion}`, { waitUntil: 'networkidle0' });
+            await pageLoadFinished(page);
             const crashClusters = await readCrashClusters(page);
             this.releasePage(page);
             return crashClusters;
@@ -262,6 +265,10 @@ export class Downloader {
     }
 }
 
+async function pageLoadFinished(page: Page) {
+    return page.waitForSelector(`[role=status][aria-hidden=true]`);
+}
+
 function parseHash(hash: string): any {
     return hash.split('#').slice(1).join('#').split('&')
         .reduce((acc, kvPair) => {
@@ -276,7 +283,7 @@ function parseHash(hash: string): any {
 async function checkForCrashClusters(page: Page): Promise<number> {
     await sleep(500);
 
-    await page.waitForSelector('[role=status][aria-hidden=true]');
+    await pageLoadFinished(page);
 
     let clusters = 0;
     const labels = await page.$$eval('.gwt-Label', (el: any[]) => el.map(el => el.textContent));
@@ -307,7 +314,7 @@ async function checkForCrashClusters(page: Page): Promise<number> {
 }
 
 async function getCrashClusterIds(page: Page): Promise<string[]> {
-    await page.waitForSelector('[data-type="errorLocation"]'); // loading
+    await pageLoadFinished(page);
 
     const clusterHrefs = await page.$$eval('section table tbody tr a', (as: any[]) => as.map(a => a.href));
 
@@ -320,7 +327,8 @@ async function getCrashClusterIds(page: Page): Promise<string[]> {
     try {
         nextPageButton = await page.$('[aria-label="Next page"]:not(:disabled)');
         await nextPageButton.click();
-        await sleep(200);
+        await sleep(20);
+        await pageLoadFinished(page);
         return crashClusterIds.concat(
             await getCrashClusterIds(page)
         );
@@ -331,8 +339,7 @@ async function getCrashClusterIds(page: Page): Promise<string[]> {
 
 async function readExceptionsFromCrashPage(page: Page, numExceptions: 'all' | number, pageNum: number = 0): Promise<Array<{ trace: string, title: string, device: string }>> {
 
-    await page.waitForSelector('section[role=article] .gwt-HTML'); // loading
-    await sleep(500);
+    await pageLoadFinished(page);
 
     const title = await page.$eval('section[role=article] .gwt-Label', el => el.textContent);
     const device = await page.$eval('section[role=article] .gwt-HTML', el => el.textContent);
@@ -362,7 +369,7 @@ async function readExceptionsFromCrashPage(page: Page, numExceptions: 'all' | nu
 }
 
 async function readCrashClusters(page: Page): Promise<CrashCluster[]> {
-    await page.waitForSelector('[data-type="errorLocation"]'); // loading
+    await pageLoadFinished(page);
     const tableEl = await page.$(`section table`);
     const rows = await tableEl.asElement().$$('tbody tr');
 
