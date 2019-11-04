@@ -44,7 +44,7 @@ export async function scrapeOverview(argv: any) {
     ssw.done();
 
     for (const row of overview) {
-        if (row.status != "Published") {
+        if (row.status !== 'Published') {
             continue;
         }
         const dashboardUrl = `https://play.google.com/apps/publish/?account=${argv.accountId}#AppDashboardPlace:p=${row.packageName}&appid=${row.appId}`;
@@ -58,9 +58,9 @@ export async function scrapeOverview(argv: any) {
         const vitalsCrashOverviewUrl = `https://play.google.com/apps/publish/?account=${argv.accountId}#AppHealthDetailsPlace:p=${row.packageName}&appid=${row.appId}&aho=APP_HEALTH_OVERVIEW&ahdt=CRASHES&ts=THIRTY_DAYS&ahbt=_CUSTOM`;
         const vitalsCrashOverviewFilename = `AppHealthDetailsPlace_${argv.accountId}_${row.packageName}_${runTimestamp}.png`;
         await downloader.takeScreenshotOfUrl(vitalsCrashOverviewUrl, vitalsCrashOverviewFilename);
-        }
+    }
 
-    await downloader.close();
+    downloader.close();
 
     overviewProgress.succeed(`Got and written overview to [${outFilePath}]`);
 }

@@ -85,17 +85,16 @@ export async function scrapeCrashes(argv: any) {
 
     const availablePackages = await downloader.getOverview();
     // Remove any suspended and draft apps from the set of available packages as these aren't in use.
-    const publishedPackages = availablePackages.filter(p => p.status == "Published");
-    console.log(publishedPackages)
+    const publishedPackages = availablePackages.filter(p => p.status === 'Published');
     const publishedPackageNames = publishedPackages.map(p => p.packageName);
-     let packageNamesToScrape = argv.packageName.split(',');
-    if (packageNamesToScrape == '*') {
+    let packageNamesToScrape = argv.packageName.split(',');
+    if (packageNamesToScrape.includes('*')) {
         packageNamesToScrape = publishedPackageNames;
     } else {
         for (const packageName of packageNamesToScrape) {
             if (!publishedPackageNames.includes(packageName)) {
                 downloader.close();
-                throw new Error(`Package name[${packageName}]is not available`);
+                throw new Error(`Package name [${packageName}] is not available`);
             }
         }
     }
@@ -103,24 +102,26 @@ export async function scrapeCrashes(argv: any) {
     for (const packageName of packageNamesToScrape) {
         console.info(`Scraping package [${packageName}]`);
 
-        const outFilePath = path.join(outputDir, `android-crash-clusters-${packageName}_${Date.now()}.${format} `);
+        const outFilePath = path.join(outputDir, `android-crash-clusters-${packageName}_${Date.now()}.${format}`);
         const clustersProgress = ora(`[${packageName}] Getting and writing crash clusters to [${outFilePath}]`).start();
 
         try {
-            const fileWriter = new StructuredStreamWriter(format, outFilePath);
             const clusterIds = await downloader.getCrashClusterIds(packageName, daysToScrape);
-            let completedScrapeIndex = 0;
-            await Promise.all(
-                clusterIds.map(id => downloader.getCrashCluster(packageName, id, numExceptions, daysToScrape).then((ret) => {
-                    const progressPercentage = Math.round(completedScrapeIndex / clusterIds.length * 100);
-                    clustersProgress.info(`Getting and writing crash clusters to [${outFilePath}] [${completedScrapeIndex}/${clusterIds.length}] [${progressPercentage}%]`);
-                    logger.info(`Got crash cluster detail [${completedScrapeIndex}/${clusterIds.length}] [${progressPercentage}%]`);
-                    completedScrapeIndex += 1;
-                    return fileWriter.writeItem(ret);
-                }))
-            );
+            if (clusterIds.length) {
+                const fileWriter = new StructuredStreamWriter(format, outFilePath);
+                let completedScrapeIndex = 0;
+                await Promise.all(
+                    clusterIds.map(id => downloader.getCrashCluster(packageName, id, numExceptions, daysToScrape).then((ret) => {
+                        const progressPercentage = Math.round(completedScrapeIndex / clusterIds.length * 100);
+                        clustersProgress.info(`Getting and writing crash clusters to [${outFilePath}] [${completedScrapeIndex}/${clusterIds.length}] [${progressPercentage}%]`);
+                        logger.info(`Got crash cluster detail [${completedScrapeIndex}/${clusterIds.length}] [${progressPercentage}%]`);
+                        completedScrapeIndex += 1;
+                        return fileWriter.writeItem(ret);
+                    }))
+                );
 
-            fileWriter.done();
+                fileWriter.done();
+            }
 
             clustersProgress.succeed();
 

@@ -17,7 +17,6 @@ export class Downloader {
     public async init() {
         this.browser = await puppeteer.launch({ headless: false, defaultViewport: null });
 
-
         for (let i = 0; i < this.parallel; i++) {
             const page = await this.browser.newPage();
             (page as any).currentRequest = Promise.resolve();
@@ -44,7 +43,8 @@ export class Downloader {
                 return trs.map(tr => {
                     const cols = Array.from(tr.querySelectorAll('td')).filter(td => td.textContent);
                     // const appHrefs = await page.$$eval('[aria-label*="package"]', (as: any[]) => as.map(a => a.href));
-                    const href = tr.querySelector<HTMLAnchorElement>('[aria-label*="package"]').href;
+                    const anchor = tr.querySelector<HTMLAnchorElement>('[aria-label*="package"]');
+                    const href = anchor ? anchor.href : null;
 
                     const [$appName, $activeInstalls, $newGooglePlayRating, $lastUpdate, $status] = cols;
                     return {
@@ -63,7 +63,7 @@ export class Downloader {
                 delete detail.href;
                 return {
                     ...detail,
-                    appId: parseHash(href).appid,
+                    appId: href ? parseHash(href).appid : null,
                 };
             });
         } finally {
@@ -109,7 +109,7 @@ export class Downloader {
         try {
             await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${packageName}&appVersion${this.lastReportedRangeStr(daysToScrape)}&clusterName=${clusterId}&detailsAppVersion`)
             await page.waitForSelector('.gwt-viz-container'); // loading
-            await sleep(1000);
+            await sleep(500);
 
             const summaryData: any = await page.$eval('[role=article]', (summaryItemsCont: any) => {
                 const summaryItems = [...summaryItemsCont.children];
@@ -267,7 +267,7 @@ function parseHash(hash: string): any {
 }
 
 async function getCrashClusterIds(page: Page): Promise<string[]> {
-    await page.waitForSelector('[data-type="errorLocation"]'); // loading
+    await page.waitForSelector('[data-type="errorLocation"],section[role=article] > p:not([aria-hidden])'); // loading
 
     const clusterHrefs = await page.$$eval('section table tbody tr a', (as: any[]) => as.map(a => a.href));
 
@@ -280,7 +280,7 @@ async function getCrashClusterIds(page: Page): Promise<string[]> {
     try {
         nextPageButton = await page.$('[aria-label="Next page"]:not(:disabled)');
         await nextPageButton.click();
-        await sleep(1000);
+        await sleep(500);
         return crashClusterIds.concat(
             await getCrashClusterIds(page)
         );
