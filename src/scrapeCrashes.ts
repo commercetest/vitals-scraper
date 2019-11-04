@@ -105,9 +105,9 @@ export async function scrapeCrashes(argv: any) {
         const outFilePath = path.join(outputDir, `android-crash-clusters-${packageName}_${Date.now()}.${format}`);
         const clustersProgress = ora(`[${packageName}] Getting and writing crash clusters to [${outFilePath}]`).start();
 
-        try {
+        try { 
             const clusterIds = await downloader.getCrashClusterIds(packageName, daysToScrape);
-            if (clusterIds.length) {
+            if (clusterIds.length > 0) {
                 const fileWriter = new StructuredStreamWriter(format, outFilePath);
                 let completedScrapeIndex = 0;
                 await Promise.all(
