@@ -17,7 +17,6 @@ export class Downloader {
     public async init() {
         this.browser = await puppeteer.launch({ headless: false, defaultViewport: null });
 
-
         for (let i = 0; i < this.parallel; i++) {
             const page = await this.browser.newPage();
             (page as any).currentRequest = Promise.resolve();
@@ -92,31 +91,31 @@ export class Downloader {
         }
     }
 
-    public async getCrashClusterIds(packageName: string, daysToScrape: number) {
+    public async getErrorClusterIds(errorType: 'crash' | 'ANR', packageName: string, daysToScrape: number) {
         const page = await this.claimPage();
         try {
-            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${packageName}&appVersion${this.lastReportedRangeStr(daysToScrape)}&errorType=CRASH`);
+            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${packageName}&appVersion${this.lastReportedRangeStr(daysToScrape)}&errorType=${errorType}`);
             await pageLoadFinished(page);
-            const crashClusterCount = await checkForCrashClusters(page);
+            const errorClusterCount = await checkForErrorClusters(errorType, page);
 
-            if (crashClusterCount === 0) {
-                console.log('0 crash clusters: no scraping needed.');
+            if (errorClusterCount === 0) {
+                console.log('0 error clusters: no scraping needed.');
                 return [];
             }
 
-            const crashClusterIds = await getCrashClusterIds(page);
-            console.log('Retrieved [' + crashClusterIds.length + '] crash cluster ids')
-            return crashClusterIds;
+            const errorClusterIds = await getErrorClusterIds(errorType, page);
+            console.log('Retrieved [' + errorClusterIds.length + '] error cluster ids');
+            return errorClusterIds;
 
         } finally {
             this.releasePage(page);
         }
     }
 
-    public async getCrashCluster(packageName: string, clusterId: string, numExceptions: NumExceptions, daysToScrape: number) {
+    public async getErrorCluster(errorType: 'crash' | 'ANR', packageName: string, clusterId: string, numExceptions: NumExceptions, daysToScrape: number) {
         const page = await this.claimPage();
         try {
-            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${packageName}&appVersion${this.lastReportedRangeStr(daysToScrape)}&clusterName=${clusterId}&detailsAppVersion`)
+            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${packageName}&appVersion${this.lastReportedRangeStr(daysToScrape)}&clusterName=${clusterId}&detailsAppVersion`);
             await pageLoadFinished(page);
 
             const summaryData: any = await page.$eval('[role=article]', (summaryItemsCont: any) => {
@@ -161,7 +160,7 @@ export class Downloader {
                     }, {});
             });
 
-            const exceptions = await readExceptionsFromCrashPage(page, numExceptions);
+            const exceptions = await readExceptionsFromErrorPage(page, numExceptions);
 
             return {
                 ...summaryData,
@@ -265,8 +264,19 @@ export class Downloader {
     }
 }
 
-async function pageLoadFinished(page: Page) {
-    return page.waitForSelector(`[role=status][aria-hidden=true]`);
+async function pageLoadFinished(page: Page, remainingRetries = 3): Promise<any> {
+    await page.waitForSelector(`[role=status][aria-hidden=true]`);
+    const errorBanner = await page.$('[data-notification-type="FAILURE"]:not([aria-hidden=true])');
+    if (errorBanner) {
+        if (remainingRetries <= 0) {
+            throw new Error(`Page Error Notification found`);
+        }
+        console.warn(`Page Error Notification found, retrying`);
+        await sleep(3000);
+        await page.reload();
+        return pageLoadFinished(page, remainingRetries - 1);
+    }
+    return;
 }
 
 function parseHash(hash: string): any {
@@ -280,24 +290,21 @@ function parseHash(hash: string): any {
         }, {});
 }
 
-async function checkForCrashClusters(page: Page): Promise<number> {
-    await sleep(500);
-
+async function checkForErrorClusters(errorType: 'crash' | 'ANR', page: Page): Promise<number> {
     await pageLoadFinished(page);
 
     let clusters = 0;
     const labels = await page.$$eval('.gwt-Label', (el: any[]) => el.map(el => el.textContent));
-    const realTimeCrashesText = labels.filter(textContent => textContent.includes('Real-time crashes'));
-    const screenshotFilename = `realtime-crashes-screenshot_${Date.now()}.png`;
+    const realTimeCrashesText = labels.filter(textContent => textContent.includes(`Real-time ${errorType}`));
+    const screenshotFilename = `realtime-errors-screenshot_${Date.now()}.png`;
     if (realTimeCrashesText.length === 0) {
-        console.log('Warning, \'Real-time crashes\' message not found, is something wrong? see ' + screenshotFilename);
+        console.log(`Warning, \'Real-time ${errorType}\' message not found, is something wrong? see [${screenshotFilename}]`);
         await page.screenshot({ path: screenshotFilename, fullPage: true });
-
     } else {
-        console.info(`'Real-time crashes' message found, see ${screenshotFilename}`);
+        console.info(`'Real-time ${errorType}' message found, see ${screenshotFilename}`);
         await page.screenshot({ path: screenshotFilename, fullPage: true });
 
-        const clusterText = labels.filter(textContent => textContent.includes('crash clusters')).toString();
+        const clusterText = labels.filter(textContent => textContent.includes(`${errorType} clusters`)).toString();
 
         if (clusterText.length > 0) {
             clusters = parseInt(clusterText);
@@ -313,7 +320,7 @@ async function checkForCrashClusters(page: Page): Promise<number> {
     return clusters;
 }
 
-async function getCrashClusterIds(page: Page): Promise<string[]> {
+async function getErrorClusterIds(errorType: 'crash' | 'ANR', page: Page): Promise<string[]> {
     await pageLoadFinished(page);
 
     const clusterHrefs = await page.$$eval('section table tbody tr a', (as: any[]) => as.map(a => a.href));
@@ -330,14 +337,14 @@ async function getCrashClusterIds(page: Page): Promise<string[]> {
         await sleep(20);
         await pageLoadFinished(page);
         return crashClusterIds.concat(
-            await getCrashClusterIds(page)
+            await getErrorClusterIds(errorType, page)
         );
     } catch (err) {
         return crashClusterIds;
     }
 }
 
-async function readExceptionsFromCrashPage(page: Page, numExceptions: 'all' | number, pageNum: number = 0): Promise<Array<{ trace: string, title: string, device: string }>> {
+async function readExceptionsFromErrorPage(page: Page, numExceptions: 'all' | number, pageNum: number = 0): Promise<Array<{ trace: string, title: string, device: string }>> {
 
     await pageLoadFinished(page);
 
@@ -361,7 +368,7 @@ async function readExceptionsFromCrashPage(page: Page, numExceptions: 'all' | nu
     if (nextPageButton && shouldLoadNextPage) {
         await nextPageButton.click();
         return [exception].concat(
-            await readExceptionsFromCrashPage(page, numExceptions, pageNum + 1)
+            await readExceptionsFromErrorPage(page, numExceptions, pageNum + 1)
         );
     } else {
         return [exception];
@@ -388,7 +395,6 @@ async function readCrashClusters(page: Page): Promise<CrashCluster[]> {
         })
     );
 
-    await sleep(660);
     let nextPageButton;
     try {
         nextPageButton = await page.$('[aria-label="Next page"]:not(:disabled)');
