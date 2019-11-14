@@ -78,4 +78,5 @@ Otherwise, you can call it form the command line like so:
 ## License
 [MIT](./LICENSE)
 
-
+## Learn more
+A helpful article provides an overview and a worked example of using a similar approach that scrapes a booking website and generates JSON results. https://www.scrapehero.com/how-to-build-a-web-scraper-using-puppeteer-and-node-js/
