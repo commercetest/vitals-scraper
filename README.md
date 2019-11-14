@@ -18,13 +18,14 @@ vitals-scraper --accountId=XXX --packageName=XXX --mode=overview
 The program can run in two modes: 
 
 1. to obtain an overview of various data about one or more of the apps on your Google Play developer account. The program outputs a csv file of summary data together with several screenshots of various reports per app you specify.
-2. to download crash data for one or more of your apps on your Google Play developer account. for the Java packagenames specified in the `--packageName` command-line parameter. 
+2. to download error data for one or more of your apps on your Google Play developer account. for the Java packagenames specified in the `--packageName` command-line parameter. 
 
 ### Options
 - `--accountId` required
 - `--packageName` required (`*` would download data for all the apps on the account)
 - `--days` (default `7`)
-- `--mode` (default `crashes`)
+- `--mode` (default `errors`)
+- `--errorType` (default `crash,ANR`)
 - `--numExceptions=2` (default `all`)
 - `--format` (default: `csv`)
 - `--outDir` (default: `./`)
@@ -76,3 +77,5 @@ Otherwise, you can call it form the command line like so:
 
 ## License
 [MIT](./LICENSE)
+
+
