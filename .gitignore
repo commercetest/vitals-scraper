@@ -5,3 +5,4 @@ bin
 coverage.lcov
 android-*
 playground-output*
+*.png
