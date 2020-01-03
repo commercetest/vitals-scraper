@@ -94,7 +94,7 @@ export class Downloader {
     public async getErrorClusterIds(errorType: 'crash' | 'ANR', packageName: string, daysToScrape: number) {
         const page = await this.claimPage();
         try {
-            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${packageName}&appVersion${this.lastReportedRangeStr(daysToScrape)}&errorType=${errorType}`);
+            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}#AndroidMetricsErrorsPlace:p=${packageName}&appVersion${this.lastReportedRangeStr(daysToScrape)}&errorType=${errorType}`, { waitUntil: 'networkidle0' });
             await pageLoadFinished(page);
             const errorClusterCount = await checkForErrorClusters(errorType, page);
 
@@ -264,18 +264,19 @@ export class Downloader {
     }
 }
 
-async function pageLoadFinished(page: Page, remainingRetries = 3): Promise<any> {
+async function pageLoadFinished(page: Page, remainingRetries = 5): Promise<any> {
     await page.waitForSelector(`[role=status][aria-hidden=true]`);
     const errorBanner = await page.$('[data-notification-type="FAILURE"]:not([aria-hidden=true])');
     if (errorBanner) {
         if (remainingRetries <= 0) {
             throw new Error(`Page Error Notification found`);
         }
-        console.warn(`Page Error Notification found, retrying`);
-        await sleep(3000);
+        console.warn(`Page Error Notification found, retrying (${remainingRetries})`);
+        await sleep(10000);
         await page.reload();
         return pageLoadFinished(page, remainingRetries - 1);
     }
+    await sleep(100);
     return;
 }
 

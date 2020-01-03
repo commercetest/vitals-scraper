@@ -158,7 +158,7 @@ async function scrapeErrorClusters(
                         completedScrapeIndex += 1;
                         return fileWriter.writeItem(ret);
                     } catch (err) {
-                        console.error(`Failed to get error cluster, skipping:`, { errorType, packageName, id });
+                        console.error(`Failed to get error cluster, skipping:`, { errorType, packageName, id }, err);
                         return Promise.resolve();
                     }
                 })
