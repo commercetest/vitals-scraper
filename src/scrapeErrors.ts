@@ -149,13 +149,19 @@ async function scrapeErrorClusters(
             const fileWriter = new StructuredStreamWriter(format, outFilePath);
             let completedScrapeIndex = 0;
             await Promise.all(
-                clusterIds.map(id => downloader.getErrorCluster(errorType, packageName, id, numExceptions, daysToScrape).then((ret) => {
-                    const progressPercentage = Math.round(completedScrapeIndex / clusterIds.length * 100);
-                    clustersProgress.info(`Getting and writing ${errorType} clusters to [${outFilePath}] [${completedScrapeIndex}/${clusterIds.length}] [${progressPercentage}%]`);
-                    logger.info(`Got ${errorType} cluster detail [${completedScrapeIndex}/${clusterIds.length}] [${progressPercentage}%]`);
-                    completedScrapeIndex += 1;
-                    return fileWriter.writeItem(ret);
-                }))
+                clusterIds.map(async (id) => {
+                    try {
+                        const ret = await downloader.getErrorCluster(errorType, packageName, id, numExceptions, daysToScrape);
+                        const progressPercentage = Math.round(completedScrapeIndex / clusterIds.length * 100);
+                        clustersProgress.info(`Getting and writing ${errorType} clusters to [${outFilePath}] [${completedScrapeIndex}/${clusterIds.length}] [${progressPercentage}%]`);
+                        logger.info(`Got ${errorType} cluster detail [${completedScrapeIndex}/${clusterIds.length}] [${progressPercentage}%]`);
+                        completedScrapeIndex += 1;
+                        return fileWriter.writeItem(ret);
+                    } catch (err) {
+                        console.error(`Failed to get error cluster, skipping:`, { errorType, packageName, id });
+                        return Promise.resolve();
+                    }
+                })
             );
             fileWriter.done();
         }
