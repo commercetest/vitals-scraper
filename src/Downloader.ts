@@ -15,7 +15,10 @@ export class Downloader {
     }
 
     public async init() {
-        this.browser = await puppeteer.launch({ headless: false, defaultViewport: null });
+        this.browser = await puppeteer.launch({ 
+            headless: false,
+            userDataDir: './data',
+            defaultViewport: null });
 
         for (let i = 0; i < this.parallel; i++) {
             const page = await this.browser.newPage();
