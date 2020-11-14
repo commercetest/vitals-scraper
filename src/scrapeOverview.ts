@@ -34,28 +34,40 @@ export async function scrapeOverview(argv: any) {
     const overviewProgress = ora(`Getting and writing overview to [${outFilePath}]`).start();
 
     const overview = await downloader.getOverview();
+    const appDetails: any[] = [];
+    for (const appOverview of overview) {
+        if (appOverview.status === 'Draft') {
+            appDetails.push(appOverview);
+        } else {
+            const appDetail = await downloader.getAppInfo(appOverview.packageName);
+            appDetails.push({
+                ...appOverview,
+                ...appDetail,
+            });
+        }
+    }
     await downloader.saveScreenshot(`android-overview_${argv.accountId}_${runTimestamp}.png`);
-    const headers = Object.keys(overview[0]);
+    const headers = Object.keys(appDetails[0]);
 
     const ssw = new StructuredStreamWriter(StructuredFormat.CSV, outFilePath, headers);
-    for (const row of overview) {
+    for (const row of appDetails) {
         ssw.writeItem(row);
     }
     ssw.done();
 
-    for (const row of overview) {
-        if (row.status !== 'Published') {
+    for (const row of appDetails) {
+        if (!row.appId) {
             continue;
         }
-        const dashboardUrl = `https://play.google.com/apps/publish/?account=${argv.accountId}#AppDashboardPlace:p=${row.packageName}&appid=${row.appId}`;
+        const dashboardUrl = `https://play.google.com/console/u/0/developers/${argv.accountId}/app/${row.appId}/app-dashboard?timespan=thirtyDays`;
         const dashboardFilename = `AppDashboardPlace_${argv.accountId}_${row.packageName}_${runTimestamp}.png`;
         await downloader.takeScreenshotOfUrl(dashboardUrl, dashboardFilename);
 
-        const vitalsOverviewUrl = `https://play.google.com/apps/publish/?account=${argv.accountId}#AppHealthOverviewPlace:p=${row.packageName}&appid=${row.appId}&ts=THIRTY_DAYS&ahbt=_CUSTOM`;
+        const vitalsOverviewUrl = `https://play.google.com/console/u/0/developers/${argv.accountId}/app/${row.appId}/vitals/metrics/overview`;
         const vitalsOverviewFilename = `AppHealthOverviewPlace_${argv.accountId}_${row.packageName}_${runTimestamp}.png`;
         await downloader.takeScreenshotOfUrl(vitalsOverviewUrl, vitalsOverviewFilename);
 
-        const vitalsCrashOverviewUrl = `https://play.google.com/apps/publish/?account=${argv.accountId}#AppHealthDetailsPlace:p=${row.packageName}&appid=${row.appId}&aho=APP_HEALTH_OVERVIEW&ahdt=CRASHES&ts=THIRTY_DAYS&ahbt=_CUSTOM`;
+        const vitalsCrashOverviewUrl = `https://play.google.com/console/u/0/developers/${argv.accountId}/app/${row.appId}/vitals/metrics/details?days=30&metric=CRASHES`;
         const vitalsCrashOverviewFilename = `AppHealthDetailsPlace_${argv.accountId}_${row.packageName}_${runTimestamp}.png`;
         await downloader.takeScreenshotOfUrl(vitalsCrashOverviewUrl, vitalsCrashOverviewFilename);
     }

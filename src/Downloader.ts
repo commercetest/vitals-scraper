@@ -1,5 +1,8 @@
-import puppeteer, { Page, Browser } from 'puppeteer';
-import { fallbackPromise, sleep } from './utils';
+import { Page, Browser } from 'puppeteer';
+import puppeteer from 'puppeteer-extra';
+import { fallbackPromise, logger, sleep } from './utils';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+puppeteer.use(StealthPlugin());
 
 type NumExceptions = 'all' | number;
 export class Downloader {
@@ -15,10 +18,11 @@ export class Downloader {
     }
 
     public async init() {
-        this.browser = await puppeteer.launch({ 
+        this.browser = await puppeteer.launch({
             headless: false,
             userDataDir: './data',
-            defaultViewport: null });
+            defaultViewport: null
+        });
 
         for (let i = 0; i < this.parallel; i++) {
             const page = await this.browser.newPage();
@@ -31,44 +35,71 @@ export class Downloader {
         const page = await this.claimPage();
         try {
             await page.goto('https://play.google.com/apps/publish');
-            await page.waitForResponse(response => response.url().includes('AppListPlace'), { timeout: null });
+            await page.waitForResponse(response => response.url().includes('paymentsAlert'), { timeout: null });
             await pageLoadFinished(page);
         } finally {
             this.releasePage(page);
         }
     }
 
+    public async loadAppList(page: Page): Promise<any> {
+        try {
+            await page.goto(`https://play.google.com/console/u/0/developers/${this.accountId}/app-list`);
+            await pageLoadFinished(page);
+            await page.waitForSelector(`pagination-bar dropdown-button material-icon`);
+            await page.click('pagination-bar dropdown-button material-icon');
+            await sleep(1000);
+            await page.waitForSelector(`material-select-dropdown-item:last-child`);
+            await page.click('material-select-dropdown-item:last-child');
+        } catch (err) {
+            logger.warn(`Failed to loadAppList, trying again`);
+            await sleep(1000);
+            return this.loadAppList(page);
+        }
+    }
+
     public async getOverview() {
         const page = await this.claimPage();
         try {
-            await page.goto(`https://play.google.com/apps/publish/?account=${this.accountId}`);
-            await pageLoadFinished(page);
-            const packageDetails = await page.$$eval('[role=article] table tbody:nth-of-type(1) tr', (trs) => {
-                return trs.map(tr => {
-                    const cols = Array.from(tr.querySelectorAll('td')).filter(td => td.textContent);
-                    const anchor = tr.querySelector<HTMLAnchorElement>('[aria-label*="package"]');
-                    const href = anchor ? anchor.href : null;
+            await this.loadAppList(page);
+            const packageDetails = await page.$$eval('ess-table .particle-table-row', (rows) => {
+                return rows.map(row => {
+                    const cols = Array.from(row.querySelectorAll('ess-cell')).filter(cell => cell.textContent);
 
-                    const [$appName, $activeInstalls, $newGooglePlayRating, $lastUpdate, $status] = cols;
+                    const [$appName, $activeInstalls, $status, $lastUpdate] = cols;
                     return {
-                        appName: $appName.querySelector('a > div > div').textContent.trim(),
-                        packageName: $appName.querySelector('a > div > div:nth-child(2)').textContent.trim(),
+                        appName: $appName.querySelector('.line').textContent.trim(),
+                        packageName: $appName.querySelector('.subtext .line').textContent.trim(),
                         activeInstalls: Number($activeInstalls.textContent.replace(/[^0-9]/g, '')),
-                        newGooglePlayRating: Number($newGooglePlayRating.textContent.replace(/[^0-9\.]/g, '')) || 'n/a',
                         lastUpdate: $lastUpdate.textContent.trim(),
                         status: $status.textContent.trim(),
-                        href,
                     };
                 });
             });
-            return packageDetails.map(detail => {
-                const href = detail.href;
-                delete detail.href;
-                return {
-                    ...detail,
-                    appId: href ? parseHash(href).appid : null,
-                };
-            });
+            return packageDetails;
+        } finally {
+            this.releasePage(page);
+        }
+    }
+
+    public async getAppInfo(packageName: string) {
+        const page = await this.claimPage();
+        try {
+            await this.loadAppList(page);
+            await page.$$eval('ess-table .particle-table-row', (rows: any, packageName: string) => {
+                const activeRow = rows.find((row: any) => row.querySelector('.subtext .line').textContent.trim() === packageName);
+                if (!activeRow) {
+                    throw new Error(`Couldn't find row for packages [${packageName}]`);
+                }
+                activeRow.querySelector('material-button:not([icontext]) [icon=arrow_right_alt]').click();
+            }, packageName);
+            await page.waitForNavigation();
+            await page.waitForSelector('average-rating console-scorecard');
+            // await page.waitForSelector('dashboard-section');
+            const url = page.url();
+            const appId = url.split('/app/')[1].split('/app-')[0];
+            const averageRating = await page.$eval('average-rating console-scorecard .value', el => el.textContent);
+            return { appId, averageRating };
         } finally {
             this.releasePage(page);
         }
@@ -267,19 +298,13 @@ export class Downloader {
     }
 }
 
-async function pageLoadFinished(page: Page, remainingRetries = 5): Promise<any> {
-    await page.waitForSelector(`[role=status][aria-hidden=true]`);
-    const errorBanner = await page.$('[data-notification-type="FAILURE"]:not([aria-hidden=true])');
-    if (errorBanner) {
-        if (remainingRetries <= 0) {
-            throw new Error(`Page Error Notification found`);
-        }
-        console.warn(`Page Error Notification found, retrying (${remainingRetries})`);
-        await sleep(10000);
-        await page.reload();
-        return pageLoadFinished(page, remainingRetries - 1);
+async function pageLoadFinished(page: Page): Promise<any> {
+    const contentEl = await page.$('.material-content');
+    const spinnerEl = await page.$('material-spinner');
+    if (!contentEl || spinnerEl) {
+        await sleep(2000);
+        return pageLoadFinished(page);
     }
-    await sleep(100);
     return;
 }
 
