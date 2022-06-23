@@ -43,7 +43,7 @@
     "@types/puppeteer": "^1.12.3",
     "axios": "^0.18.0",
     "backoff": "^2.5.0",
-    "jsdom": "^14.0.0",
+    "jsdom": "^16.5.0",
     "log-symbols": "^2.2.0",
     "minimist": "^1.2.0",
     "ora": "^3.2.0",
